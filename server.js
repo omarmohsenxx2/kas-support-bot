@@ -2,8 +2,8 @@ const express = require("express");
 const cheerio = require("cheerio");
 const sources = require("./sources");
 
-const app = express();
-app.use(express.json());
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 // ================= CORS =================
 app.use((req, res, next) => {
