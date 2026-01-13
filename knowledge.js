@@ -2,6 +2,9 @@
 module.exports = {
   hotline: "01146925558",
 
+  // ضع هنا لينك المتجر
+  storeUrl: "https://egy-tronix.com/shop/",
+
   greetings: {
     triggers: ["السلام عليكم", "اهلا", "أهلا", "مرحبا", "هاي", "hello", "hi"],
     reply:
@@ -13,6 +16,7 @@ module.exports = {
   branches: {
     list: [
       "الإدارة",
+      "الفرع الرئيسي",
       "فيصل",
       "حلمية الزيتون",
       "القاهرة",
@@ -28,6 +32,17 @@ module.exports = {
         phones: [],
         whatsapp: []
       },
+      "الفرع الرئيسي": {
+        address: "شارع الملك فيصل - محطة التعاون - برج الشرطة - الدور الأول - الجيزة",
+        phones: [],
+        whatsapp: []
+      },
+      "فيصل": {
+        address: "شارع الملك فيصل - محطة التعاون - برج الشرطة - الدور الأول - الجيزة",
+        phones: ["01129553313", "01144546320"],
+        whatsapp: []
+      },
+
       "القاهرة": {
         address: "ش البشري من ش الكمال - حلمية الزيتون - بجوار مترو الأنفاق - القاهرة",
         phones: ["01111370065"],
@@ -36,11 +51,6 @@ module.exports = {
       "حلمية الزيتون": {
         address: "ش البشري من ش الكمال - حلمية الزيتون - بجوار مترو الأنفاق - القاهرة",
         phones: ["01205882821"],
-        whatsapp: []
-      },
-      "فيصل": {
-        address: "",
-        phones: ["01129553313", "01144546320"],
         whatsapp: []
       },
       "الإسكندرية": {
@@ -102,12 +112,10 @@ module.exports = {
     url: "https://chat.whatsapp.com/DxFqfaF4vt551OK5KvcUzc"
   },
 
-  // اختياري: لو عندك صفحة رموز أعطال حطها هنا
   malfunctions: {
-    url: "https://egy-tronix.com/malfunctions-alerts/"
+    url: ""
   },
 
-  // اختياري: منتجات + أدلة
   products: {
     automatic_door: {
       name: "باب اوتوماتيك",
