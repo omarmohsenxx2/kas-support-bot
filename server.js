@@ -9,9 +9,7 @@ app.use(express.json({ limit: "200kb" }));
 app.use((req, res, next) => {
   const allowedOrigins = ["https://egy-tronix.com", "https://www.egy-tronix.com"];
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
+  if (allowedOrigins.includes(origin)) res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -20,7 +18,12 @@ app.use((req, res, next) => {
 });
 
 function normalize(s) {
-  return String(s || "").trim().toLowerCase();
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[إأآا]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/\s+/g, " ");
 }
 
 function isGreeting(msg) {
@@ -33,7 +36,7 @@ function isGreeting(msg) {
 
 function isAddressIntent(msg) {
   const m = normalize(msg);
-  return m.includes("عنوان") || m.includes("لوكيشن") || m.includes("مكان") || m.includes("فروع") || m.includes("فين");
+  return m.includes("عنوان") || m.includes("لوكيشن") || m.includes("مكان") || m.includes("فروع") || m.includes("فرع") || m.includes("فين");
 }
 
 function isDeptIntent(msg) {
@@ -41,19 +44,19 @@ function isDeptIntent(msg) {
   return (
     m.includes("دعم") ||
     m.includes("الدعم الفني") ||
+    m.includes("خدمه العملاء") ||
     m.includes("خدمة العملاء") ||
     m.includes("مبيعات") ||
     m.includes("تسويق") ||
     m.includes("مشتريات") ||
     m.includes("ارقام") ||
-    m.includes("أرقام") ||
     m.includes("رقم")
   );
 }
 
 function isManualIntent(msg) {
   const m = normalize(msg);
-  return m.includes("دليل") || m.includes("كتالوج") || m.includes("datasheet") || m.includes("data sheet") || m.includes("manual") || m.includes("user guide");
+  return m.includes("دليل") || m.includes("كتالوج") || m.includes("datasheet") || m.includes("manual") || m.includes("user guide");
 }
 
 function isWiringIntent(msg) {
@@ -63,11 +66,33 @@ function isWiringIntent(msg) {
 
 function isMalfunctionsIntent(msg) {
   const m = normalize(msg);
-  return m.includes("اعطال") || m.includes("أعطال") || m.includes("رموز") || m.includes("malfunctions") || m.includes("alerts") || m.includes("alarms");
+  return m.includes("اعطال") || m.includes("اعطال") || m.includes("رموز") || m.includes("alerts") || m.includes("alarms");
 }
+
+// مرادفات للفروع (اختصارات)
+const BRANCH_ALIASES = {
+  "الحلميه": "حلمية الزيتون",
+  "حلميه": "حلمية الزيتون",
+  "الحلمية": "حلمية الزيتون",
+  "حلمية": "حلمية الزيتون",
+  "الاداره": "الإدارة",
+  "الادارة": "الإدارة",
+  "اداره": "الإدارة",
+  "ادارة": "الإدارة",
+  "اسكندريه": "الإسكندرية",
+  "اسكندرية": "الإسكندرية",
+  "القاهره": "القاهرة"
+};
 
 function detectBranch(msg) {
   const m = normalize(msg);
+
+  // 1) alias direct match
+  for (const [alias, branchName] of Object.entries(BRANCH_ALIASES)) {
+    if (m.includes(normalize(alias))) return branchName;
+  }
+
+  // 2) exact list contains
   const list = K.branches?.list || [];
   for (const b of list) {
     const bn = normalize(b);
@@ -83,9 +108,8 @@ function detectDepartment(msg) {
     const kk = normalize(k);
     if (kk && m.includes(kk)) return k;
   }
-  // fallback مرن
   if (m.includes("دعم")) return "الدعم الفني";
-  if (m.includes("خدمة")) return "خدمة العملاء";
+  if (m.includes("خدمه") || m.includes("خدمة")) return "خدمة العملاء";
   if (m.includes("مبيعات")) return "المبيعات";
   if (m.includes("تسويق")) return "التسويق";
   if (m.includes("مشتريات")) return "المشتريات";
@@ -99,19 +123,12 @@ function detectProduct(msg) {
     const name = normalize(p?.name);
     if (name && m.includes(name)) return id;
 
-    // synonyms مهمين
     if (id === "folding_door" && (m.includes("فولدينج") || (m.includes("باب") && m.includes("طي")))) return id;
     if (id === "automatic_door" && (m.includes("باب") && m.includes("اوتوماتيك"))) return id;
     if (id === "gold_2030" && (m.includes("جولد") && m.includes("2030"))) return id;
     if (id === "kas_2025" && m.includes("2025")) return id;
     if (id === "kas_2021" && m.includes("2021")) return id;
     if (id === "mini_8" && (m.includes("ميني") || m.includes("mini 8") || m.includes("8 وقفه") || m.includes("8 وقفة"))) return id;
-    if (id === "inverter_card" && (m.includes("انفرتر") || m.includes("inverter"))) return id;
-    if (id === "ups_panel" && m.includes("ups")) return id;
-    if (id === "i7" && (m.includes("i7") || (m.includes("طوارئ") && m.includes("7")))) return id;
-    if (id === "i5" && (m.includes("i5") || (m.includes("طوارئ") && m.includes("5")))) return id;
-    if (id === "cam_08" && (m.includes("كامة") && (m.includes("08") || m.includes("8")))) return id;
-    if (id === "cam_09" && (m.includes("كامة") && m.includes("09"))) return id;
   }
   return null;
 }
@@ -138,45 +155,97 @@ app.get("/", (req, res) => res.send("KAS Bot is running"));
 app.post("/chat", (req, res, next) => {
   try {
     const message = String(req.body?.message || "");
+    const m = normalize(message);
     const context = (req.body?.context && typeof req.body.context === "object") ? req.body.context : {};
     const nextContext = { ...context };
 
-    // تحية
-    if (isGreeting(message)) {
-      // نضيف الخط الساخن في الترحيب
-      const hotline = K.hotline ? `\n\n☎️ الخط الساخن: ${K.hotline}` : "";
-      return res.json({ reply: (K.greetings?.reply || "أهلاً بحضرتك 👋") + hotline, context: nextContext });
-    }
-
-    // رموز الأعطال
-    if (isMalfunctionsIntent(message)) {
-      if (K.malfunctions?.url) {
-        return res.json({
-          reply: `يمكنك مراجعة رموز الاعطال والتنبيهات من هنا:\n${K.malfunctions.url}`,
-          context: nextContext
-        });
+    // ====== دعم “استكمال السؤال” (awaiting) ======
+    if (nextContext.awaiting === "branch_address") {
+      const branch = detectBranch(message);
+      if (branch) {
+        nextContext.awaiting = null;
+        nextContext.lastBranch = branch;
+        const b = K.branches?.data?.[branch];
+        if (b?.address) {
+          return res.json({
+            reply: `عنوان فرع ${branch}:\n${b.address}\n${formatPhones(b) ? "\n" + formatPhones(b) : ""}`.trim(),
+            context: nextContext
+          });
+        }
+        return res.json({ reply: `العنوان غير مُضاف بعد لفرع ${branch}.`, context: nextContext });
       }
       return res.json({
-        reply: "رموز الأعطال غير مضافة حالياً. ابعتلي رابط صفحة الرموز وسأضيفه.",
+        reply: `مش واضح اسم الفرع. اختار واحد من دول:\n- ${(K.branches?.list || []).join("\n- ")}`,
         context: nextContext
       });
     }
 
-    // عنوان / فروع
+    if (nextContext.awaiting === "dept_contact") {
+      const dept = detectDepartment(message);
+      if (dept) {
+        nextContext.awaiting = null;
+        nextContext.lastDept = dept;
+        const d = (K.departments || {})[dept];
+        if (d) {
+          let extra = "";
+          if (m.includes("باب") || m.includes("فولدينج") || m.includes("اوتوماتيك")) extra = doorGroupHint();
+          return res.json({ reply: `بيانات ${dept}:\n${formatPhones(d)}${extra}`.trim(), context: nextContext });
+        }
+      }
+      return res.json({
+        reply: `حضرتك تقصد أي قسم؟\n- ${Object.keys(K.departments || {}).join("\n- ")}`,
+        context: nextContext
+      });
+    }
+
+    if (nextContext.awaiting === "product_manual") {
+      const productId = detectProduct(message);
+      if (productId) {
+        nextContext.awaiting = null;
+        nextContext.lastProductId = productId;
+        const p = (K.products || {})[productId];
+        const manuals = p?.manuals || {};
+        const keys = Object.keys(manuals);
+        if (!keys.length) {
+          return res.json({ reply: `لا توجد ادلة مضافة حاليا.\nرابط المنتج:\n${p.url || ""}`.trim(), context: nextContext });
+        }
+        const firstKey = keys[0];
+        return res.json({ reply: `${firstKey}:\n${manuals[firstKey]}`, context: nextContext });
+      }
+      return res.json({
+        reply: "اكتب اسم المنتج المطلوب (مثال: كاس 2025 / جولد 2030 / باب فولدينج / باب اوتوماتيك).",
+        context: nextContext
+      });
+    }
+
+    // ====== تحية ======
+    if (isGreeting(message)) {
+      const hotline = K.hotline ? `\n\n☎️ الخط الساخن: ${K.hotline}` : "";
+      return res.json({ reply: (K.greetings?.reply || "أهلاً 👋") + hotline, context: nextContext });
+    }
+
+    // ====== أعطال ======
+    if (isMalfunctionsIntent(message)) {
+      if (K.malfunctions?.url) {
+        return res.json({ reply: `رموز الاعطال والتنبيهات:\n${K.malfunctions.url}`, context: nextContext });
+      }
+      return res.json({ reply: "رموز الأعطال غير مضافة حالياً.", context: nextContext });
+    }
+
+    // ====== عنوان/فروع ======
     if (isAddressIntent(message)) {
       const branch = detectBranch(message);
       if (!branch) {
+        nextContext.awaiting = "branch_address";
         return res.json({
           reply: `من فضلك حدّد الفرع المطلوب:\n- ${(K.branches?.list || []).join("\n- ")}`,
           context: nextContext
         });
       }
+      nextContext.lastBranch = branch;
       const b = K.branches?.data?.[branch];
-      if (!b || !b.address) {
-        return res.json({
-          reply: `تم استلام اسم الفرع: ${branch}.\nالعنوان غير مُضاف بعد.`,
-          context: nextContext
-        });
+      if (!b?.address) {
+        return res.json({ reply: `العنوان غير مُضاف بعد لفرع ${branch}.`, context: nextContext });
       }
       return res.json({
         reply: `عنوان فرع ${branch}:\n${b.address}\n${formatPhones(b) ? "\n" + formatPhones(b) : ""}`.trim(),
@@ -184,76 +253,45 @@ app.post("/chat", (req, res, next) => {
       });
     }
 
-    // أقسام التواصل (دعم/مبيعات/تسويق/مشتريات/خدمة عملاء)
+    // ====== أقسام ======
     if (isDeptIntent(message)) {
       const dept = detectDepartment(message);
-
-      // لو المستخدم قال "أرقام" بس بدون قسم
       if (!dept) {
+        nextContext.awaiting = "dept_contact";
         return res.json({
-          reply:
-            `حضرتك تقصد أي قسم؟\n- ${Object.keys(K.departments || {}).join("\n- ")}\n\n` +
-            (K.hotline ? `☎️ الخط الساخن: ${K.hotline}` : ""),
+          reply: `حضرتك تقصد أي قسم؟\n- ${Object.keys(K.departments || {}).join("\n- ")}`,
           context: nextContext
         });
       }
-
+      nextContext.lastDept = dept;
       const d = (K.departments || {})[dept];
-      if (!d || (!d.phones?.length && !d.whatsapp?.length && !d.hours && !d.notes)) {
-        return res.json({
-          reply: `تم استلام القسم: ${dept}.\nبيانات التواصل غير مُضافة بعد.`,
-          context: nextContext
-        });
-      }
+      if (!d) return res.json({ reply: `القسم غير موجود حالياً: ${dept}`, context: nextContext });
 
       let extra = "";
-      // لو السؤال عن الباب (جروب الدعم)
-      if (normalize(message).includes("باب") || normalize(message).includes("فولدينج") || normalize(message).includes("اوتوماتيك")) {
-        extra = doorGroupHint();
-      }
+      if (m.includes("باب") || m.includes("فولدينج") || m.includes("اوتوماتيك")) extra = doorGroupHint();
 
-      return res.json({
-        reply: `بيانات ${dept}:\n${formatPhones(d)}${extra}`,
-        context: nextContext
-      });
+      return res.json({ reply: `بيانات ${dept}:\n${formatPhones(d)}${extra}`.trim(), context: nextContext });
     }
 
-    // أدلة / مخططات
+    // ====== أدلة/مخططات ======
     if (isManualIntent(message) || isWiringIntent(message)) {
       const productId = detectProduct(message) || nextContext.lastProductId || null;
       if (!productId) {
-        return res.json({
-          reply: "من فضلك حدّد اسم المنتج المطلوب حتى ارسل لك الدليل او المخطط (مثال: كاس 2025 / جولد 2030 / باب فولدينج / باب اوتوماتيك).",
-          context: nextContext
-        });
+        nextContext.awaiting = "product_manual";
+        return res.json({ reply: "من فضلك حدّد اسم المنتج المطلوب لإرسال الدليل/المخطط.", context: nextContext });
       }
       nextContext.lastProductId = productId;
-
       const p = (K.products || {})[productId];
-      if (!p) return res.json({ reply: "المنتج غير معروف حاليا.", context: nextContext });
-
-      const manuals = p.manuals || {};
+      const manuals = p?.manuals || {};
       const keys = Object.keys(manuals);
       if (!keys.length) {
-        return res.json({
-          reply: `لا توجد ادلة مضافة حاليا لهذا المنتج.\nرابط صفحة المنتج:\n${p.url || ""}`.trim(),
-          context: nextContext
-        });
+        return res.json({ reply: `لا توجد ادلة مضافة حاليا.\nرابط المنتج:\n${p.url || ""}`.trim(), context: nextContext });
       }
-
-      // لو مخطط: حاول تفضيل المخطط
-      if (isWiringIntent(message)) {
-        const wiringKey = keys.find(k => normalize(k).includes("مخطط") || normalize(k).includes("wiring") || normalize(k).includes("diagram"));
-        if (wiringKey) {
-          return res.json({ reply: `${wiringKey}:\n${manuals[wiringKey]}`, context: nextContext });
-        }
-      }
-
       const firstKey = keys[0];
       return res.json({ reply: `${firstKey}:\n${manuals[firstKey]}`, context: nextContext });
     }
 
-    // سؤال عن منتج (رابط + specs فقط)
+    // ====== منتج ======
     const productId = detectProduct(message);
     if (productId) {
       nextContext.lastProductId = productId;
@@ -261,28 +299,20 @@ app.post("/chat", (req, res, next) => {
       const specs = Array.isArray(p?.specs) ? p.specs.filter(Boolean) : [];
       const extra = (productId === "automatic_door" || productId === "folding_door") ? doorGroupHint() : "";
       if (specs.length) {
-        return res.json({
-          reply: `${p.name}:\n- ${specs.join("\n- ")}\n\nرابط المنتج:\n${p.url || ""}${extra}`.trim(),
-          context: nextContext
-        });
+        return res.json({ reply: `${p.name}:\n- ${specs.join("\n- ")}\n\nرابط المنتج:\n${p.url || ""}${extra}`.trim(), context: nextContext });
       }
-      return res.json({
-        reply: `رابط صفحة المنتج:\n${p.url || ""}${extra}`.trim(),
-        context: nextContext
-      });
+      return res.json({ reply: `رابط صفحة المنتج:\n${p.url || ""}${extra}`.trim(), context: nextContext });
     }
 
-    // fallback واضح (بدون “وضح سؤالك”)
+    // ====== fallback واضح ======
     return res.json({
       reply:
-        "اختار اللي تحبه:\n" +
-        "- اكتب: عنوان فرع (مثال: عنوان فرع الإسكندرية)\n" +
-        "- اكتب: رقم الدعم الفني\n" +
-        "- اكتب: أرقام المبيعات\n" +
-        "- اكتب: تسويق / مشتريات / خدمة العملاء\n" +
-        "- اكتب: دليل + اسم المنتج (مثال: دليل كاس 2025)\n\n" +
-        (K.hotline ? `☎️ الخط الساخن: ${K.hotline}` : "") +
-        (K.autoDoorSupportGroup?.url ? `\n💬 جروب دعم الأبواب:\n${K.autoDoorSupportGroup.url}` : ""),
+        "اكتب سؤالك بالشكل ده عشان أرد بسرعة:\n" +
+        "- عنوان فرع (مثال: عنوان فرع الحلمية)\n" +
+        "- رقم الدعم الفني\n" +
+        "- أرقام المبيعات\n" +
+        "- دليل + اسم المنتج\n\n" +
+        (K.hotline ? `☎️ الخط الساخن: ${K.hotline}` : ""),
       context: nextContext
     });
   } catch (err) {
