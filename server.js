@@ -322,6 +322,17 @@ if (m.includes("عناوين الفروع")) {
       const bdata = safeObj(K.branches?.data?.[branch]);
       return res.json({ reply: `عنوان فرع ${branch}:\n${bdata.address || "غير مُضاف بعد"}`, context: nextContext });
     }
+    
+// departments list buttons
+if (m.includes("ارقام الاقسام") || m.includes("أرقام الأقسام") || m.includes("اقسام") || m.includes("الأقسام")) {
+  const deps = safeObj(K.departments);
+  const keys = Object.keys(deps);
+  return res.json({
+    reply: "اختار القسم من الأزرار 👇",
+    context: nextContext,
+    suggestions: keys.map(k => ({ label: k, send: "رقم " + k }))
+  });
+}
 
     // departments
     if (isDeptIntent(message)) {
@@ -338,12 +349,14 @@ if (m.includes("عناوين الفروع")) {
         else if (m.includes("خدمة") || m.includes("خدمه")) dept = "خدمة العملاء";
       }
 
-      if (!dept || !deps[dept]) {
-        return res.json({
-          reply: `حضرتك تقصد أي قسم؟\n- ${Object.keys(deps).join("\n- ")}`,
-          context: nextContext
-        });
-      }
+if (!dept || !deps[dept]) {
+  const keys = Object.keys(deps);
+  return res.json({
+    reply: "حضرتك تقصد أي قسم؟ اختار من الأزرار 👇",
+    context: nextContext,
+    suggestions: keys.map(k => ({ label: k, send: "رقم " + k }))
+  });
+}
       return res.json({ reply: `بيانات ${dept}:\n${formatPhones(deps[dept])}`, context: nextContext });
     }
 
