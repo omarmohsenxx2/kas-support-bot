@@ -81,9 +81,23 @@ function isManualIntent(msg) {
   );
 }
 
+function hasWord(m, w) {
+  // كلمة كاملة: بداية/مسافة + الكلمة + نهاية/مسافة
+  const re = new RegExp("(^|\\s)" + w + "(\\s|$)");
+  return re.test(m);
+}
+
 function isPriceIntent(msg) {
   const m = normalize(msg);
-  return m.includes("سعر") || m.includes("اسعار") || m.includes("price") || m.includes("كام") || m.includes("تكلف") || m.includes("تكلفة");
+  // مهم: "كام" لازم تكون كلمة لوحدها عشان ما تمسكش في "كامه/كامة"
+  return (
+    m.includes("سعر") ||
+    m.includes("اسعار") ||
+    m.includes("price") ||
+    hasWord(m, "كام") ||
+    m.includes("تكلف") ||
+    m.includes("تكلفة")
+  );
 }
 
 function isAddressIntent(msg) {
