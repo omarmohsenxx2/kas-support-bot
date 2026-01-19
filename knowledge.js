@@ -15,6 +15,14 @@ module.exports = {
     url: "https://chat.whatsapp.com/DxFqfaF4vt551OK5KvcUzc"
   },
 
+  // ✅ جديد: جروب الدعم الفني
+  supportGroups: {
+    techUrl: "https://chat.whatsapp.com/JWFYB8ebe1iIErVTBZNepH"
+  },
+
+  // ✅ جديد: صفحة رموز الأعطال
+  malfunctionsUrl: "https://egy-tronix.com/malfunctions-alerts/",
+
   branches: {
     list: ["الإدارة", "الفرع الرئيسي", "فيصل", "حلمية الزيتون", "القاهرة", "الإسكندرية", "المنصورة", "أسيوط", "دمنهور", "المملكة العربية السعودية"],
     data: {
