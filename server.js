@@ -1,11 +1,10 @@
 // server.js
 const express = require("express");
-const fetch = require("node-fetch"); // للثبات (حتى لو مش مستخدم حاليا)
+const fetch = require("node-fetch");
 const app = express();
 
 app.use(express.json({ limit: "200kb" }));
 
-// ---- Safe load knowledge.js ----
 let K = {};
 let KNOWLEDGE_OK = false;
 let KNOWLEDGE_ERROR = null;
@@ -18,20 +17,9 @@ try {
   KNOWLEDGE_ERROR = String(e && (e.stack || e.message || e));
   console.error("FAILED TO LOAD ./knowledge.js");
   console.error(KNOWLEDGE_ERROR);
-
-  // fallback minimal
-  K = {
-    hotline: "01146925558",
-    storeUrl: "PUT_STORE_URL_HERE",
-    greetings: { triggers: ["اهلا", "السلام عليكم", "hello", "hi"], reply: "أهلاً 👋" },
-    branches: { list: ["فيصل"], data: { "فيصل": { address: "شارع الملك فيصل - محطة التعاون - برج الشرطة - الدور الأول - الجيزة" } } },
-    departments: {},
-    products: {},
-    autoDoorSupportGroup: { url: "" }
-  };
+  K = { greetings: { triggers: [], reply: "أهلاً" }, branches: { list: [], data: {} }, departments: {}, products: {} };
 }
 
-// ---- CORS ----
 app.use((req, res, next) => {
   const allowedOrigins = ["https://egy-tronix.com", "https://www.egy-tronix.com"];
   const origin = req.headers.origin;
@@ -55,13 +43,289 @@ function normalize(s) {
     .replace(/\s+/g, " ");
 }
 
-function tokenize(s) {
-  const m = normalize(s);
-  return m.split(/[^a-z0-9\u0600-\u06FF]+/).filter(Boolean);
-}
-
 function isGreeting(msg) {
   const m = normalize(msg);
+  return (K.greetings?.triggers || []).some(t => {
+    const tt = normalize(t);
+    return tt && (m === tt || m.includes(tt));
+  });
+}
+
+function isAddressIntent(msg) {
+  const m = normalize(msg);
+  return m.includes("عنوان") || m.includes("فرع") || m.includes("فروع") || m.includes("فين") || m.includes("مكان");
+}
+
+function isPriceIntent(msg) {
+  const m = normalize(msg);
+  return m.includes("سعر") || m.includes("اسعار") || m.includes("price") || m.includes("كام") || m.includes("تكلف");
+}
+
+function isDeptIntent(msg) {
+  const m = normalize(msg);
+  return m.includes("دعم") || m.includes("مبيعات") || m.includes("تسويق") || m.includes("مشتريات") || m.includes("خدمة العملاء") || m.includes("خدمه العملاء") || m.includes("رقم") || m.includes("ارقام") || m.includes("أرقام");
+}
+
+function isManualIntent(msg) {
+  const m = normalize(msg);
+  return m.includes("دليل") || m.includes("كتالوج") || m.includes("datasheet") || m.includes("manual") || m.includes("pdf") || m.includes("برشور");
+}
+
+function detectDepartment(msg) {
+  const m = normalize(msg);
+  const deps = K.departments || {};
+  for (const k of Object.keys(deps)) {
+    if (m.includes(normalize(k))) return k;
+  }
+  if (m.includes("دعم")) return "الدعم الفني";
+  if (m.includes("مبيعات")) return "المبيعات";
+  if (m.includes("تسويق")) return "التسويق";
+  if (m.includes("مشتريات")) return "المشتريات";
+  if (m.includes("خدمة") || m.includes("خدمه")) return "خدمة العملاء";
+  return null;
+}
+
+const BRANCH_ALIASES = {
+  "الفرع الرئيسي": "فيصل",
+  "الرئيسي": "فيصل",
+  "الاداره": "فيصل",
+  "الادارة": "فيصل",
+  "ادارة": "فيصل",
+  "فيصل": "فيصل",
+  "الحلميه": "حلمية الزيتون",
+  "الحلمية": "حلمية الزيتون",
+  "اسكندرية": "الإسكندرية",
+  "اسكندريه": "الإسكندرية",
+  "القاهره": "القاهرة"
+};
+
+function detectBranch(msg) {
+  const m = normalize(msg);
+  for (const [alias, branchName] of Object.entries(BRANCH_ALIASES)) {
+    if (m.includes(normalize(alias))) return branchName;
+  }
+  const list = K.branches?.list || [];
+  for (const b of list) if (m.includes(normalize(b))) return b;
+  return null;
+}
+
+function detectProductId(msg) {
+  const m = normalize(msg);
+  const products = K.products || {};
+  for (const [id, p] of Object.entries(products)) {
+    if (p?.name && m.includes(normalize(p.name))) return id;
+    const aliases = Array.isArray(p?.aliases) ? p.aliases : [];
+    for (const a of aliases) if (m.includes(normalize(a))) return id;
+  }
+  return null;
+}
+
+function formatPhones(obj) {
+  const phones = (obj?.phones || []).filter(Boolean);
+  let out = "";
+  if (phones.length) out += `ارقام الهاتف:\n- ${phones.join("\n- ")}\n`;
+  if (obj?.notes) out += `${obj.notes}\n`;
+  return out.trim();
+}
+
+function manualSuggestionsByType(type) {
+  const products = K.products || {};
+  const items = [];
+  for (const [id, p] of Object.entries(products)) {
+    if (p?.type === type) {
+      items.push({ label: p.name, send: "دليل " + p.name });
+    }
+  }
+  return items;
+}
+
+function manualCategorySuggestions(message) {
+  const m = normalize(message);
+
+  // لو قال "كارت"
+  if (m.includes("كارت") || m.includes("كنترول") || m.includes("board") || m.includes("card")) {
+    return manualSuggestionsByType("cards").concat(manualSuggestionsByType("power"));
+  }
+
+  // لو قال "باب"
+  if (m.includes("باب") || m.includes("doors") || m.includes("door")) {
+    return manualSuggestionsByType("doors").concat([
+      { label: "جروب دعم الأبواب الأوتوماتيك", send: "جروب دعم الأبواب" }
+    ]);
+  }
+
+  // لو قال "كامة"
+  if (m.includes("كامة") || m.includes("cam")) {
+    return manualSuggestionsByType("cams");
+  }
+
+  // افتراضي: اعرض أقسام
+  return [
+    { label: "دلائل الكروت", send: "دليل كارت" },
+    { label: "دلائل الأبواب", send: "دليل باب" },
+    { label: "دلائل الكامات", send: "دليل كامة" }
+  ];
+}
+
+function formatManuals(productId) {
+  const p = K.products?.[productId];
+  const manuals = Array.isArray(p?.manuals) ? p.manuals : [];
+  if (!p) return "المنتج غير معروف حالياً.";
+  if (!manuals.length) {
+    return `لا توجد ملفات PDF مضافة حالياً لـ ${p.name}.\nرابط صفحة المنتج:\n${p.url || ""}`.trim();
+  }
+  const lines = manuals.map(m => `- ${m.title}:\n${m.url}`);
+  return `دلائل/كتالوج ${p.name}:\n${lines.join("\n")}`.trim();
+}
+
+// ---- Health ----
+app.get("/", (req, res) => res.send("KAS Bot is running"));
+
+app.get("/debug", (req, res) => {
+  res.json({
+    ok: true,
+    knowledge_ok: KNOWLEDGE_OK,
+    knowledge_error: KNOWLEDGE_ERROR,
+    products_count: Object.keys(K.products || {}).length,
+    now: new Date().toISOString()
+  });
+});
+
+// ---- Chat ----
+app.post("/chat", (req, res) => {
+  const message = String(req.body?.message || "");
+  const context = (req.body?.context && typeof req.body.context === "object") ? req.body.context : {};
+  const nextContext = { ...context };
+
+  // تحية
+  if (isGreeting(message)) {
+    return res.json({
+      reply: (K.greetings?.reply || "أهلاً 👋") + (K.hotline ? `\n\n☎️ الخط الساخن: ${K.hotline}` : ""),
+      context: nextContext,
+      suggestions: [
+        { label: "📄 دلائل الاستخدام", send: "دليل" },
+        { label: "💰 الأسعار", send: "سعر" },
+        { label: "📍 عناوين الفروع", send: "عناوين الفروع" },
+        { label: "🛠️ الدعم الفني", send: "رقم الدعم الفني" }
+      ]
+    });
+  }
+
+  // تحديث سياق المنتج
+  const detectedProduct = detectProductId(message);
+  if (detectedProduct) nextContext.lastProductId = detectedProduct;
+  const productId = detectedProduct || nextContext.lastProductId || null;
+
+  // سعر
+  if (isPriceIntent(message)) {
+    return res.json({
+      reply:
+        "لمزيد من المعلومات عن الأسعار والمواصفات الخاصة بمنتجاتنا، يمكنك زيارة متجرنا الإلكتروني:\n" +
+        (K.storeUrl || "PUT_STORE_URL_HERE"),
+      context: nextContext,
+      suggestions: [
+        { label: "🛒 زيارة المتجر", send: "المتجر" },
+        { label: "💰 أرقام المبيعات", send: "أرقام المبيعات" }
+      ]
+    });
+  }
+
+  if (normalize(message) === "المتجر") {
+    return res.json({ reply: `متجر KAS الإلكتروني:\n${K.storeUrl || "PUT_STORE_URL_HERE"}`, context: nextContext });
+  }
+
+  // أقسام
+  if (isDeptIntent(message)) {
+    const dept = detectDepartment(message);
+    if (!dept) {
+      return res.json({
+        reply: `حضرتك تقصد أي قسم؟\n- ${Object.keys(K.departments || {}).join("\n- ")}`,
+        context: nextContext
+      });
+    }
+    return res.json({ reply: `بيانات ${dept}:\n${formatPhones(K.departments?.[dept])}`, context: nextContext });
+  }
+
+  // عناوين الفروع
+  if (normalize(message).includes("عناوين الفروع")) {
+    return res.json({ reply: `اختر الفرع:\n- ${(K.branches?.list || []).join("\n- ")}`, context: nextContext });
+  }
+
+  if (isAddressIntent(message)) {
+    const branch = detectBranch(message);
+    if (!branch) {
+      return res.json({ reply: `من فضلك حدّد الفرع:\n- ${(K.branches?.list || []).join("\n- ")}`, context: nextContext });
+    }
+    const b = K.branches?.data?.[branch];
+    return res.json({ reply: `عنوان فرع ${branch}:\n${b?.address || "غير مُضاف بعد"}`, context: nextContext });
+  }
+
+  // جروب الأبواب
+  if (normalize(message).includes("جروب") && normalize(message).includes("باب")) {
+    return res.json({
+      reply: `جروب كاس للدعم الفني للأبواب الأوتوماتيك:\n${K.autoDoorSupportGroup?.url || ""}`,
+      context: nextContext
+    });
+  }
+
+  // دلائل الاستخدام
+  if (isManualIntent(message)) {
+    // لو المستخدم قال "دليل" فقط أو "دليل كارت/باب/كامة" → اقتراحات أزرار
+    const m = normalize(message);
+    if (!productId || m === "دليل" || m.includes("دليل كارت") || m.includes("دليل باب") || m.includes("دليل كامه") || m.includes("دليل كامة")) {
+      const suggestions = manualCategorySuggestions(message);
+      return res.json({
+        reply: "اختار الدليل اللي محتاجه من الأزرار:",
+        context: nextContext,
+        suggestions
+      });
+    }
+
+    // لو في سياق منتج → ابعت الدليل
+    return res.json({
+      reply: formatManuals(productId),
+      context: nextContext
+    });
+  }
+
+  // لو كتب اسم منتج (حتى بدون كلمة دليل) — اعرض أزرار
+  if (productId) {
+    const p = K.products?.[productId];
+    return res.json({
+      reply:
+        `${p?.name || "المنتج"}\n` +
+        `لو محتاج الدليل اضغط الزر:\n`,
+      context: nextContext,
+      suggestions: [
+        { label: "📄 دليل/كتالوج " + (p?.name || "المنتج"), send: "دليل " + (p?.name || "") },
+        { label: "💰 أسعار " + (p?.name || "المنتج"), send: "سعر " + (p?.name || "") }
+      ]
+    });
+  }
+
+  return res.json({
+    reply: "مش فاهم سؤالك بالكامل. جرّب تكتب: (دليل) أو (دليل كارت) أو (دليل باب) أو اسم المنتج.",
+    context: nextContext,
+    suggestions: [
+      { label: "📄 دلائل الاستخدام", send: "دليل" },
+      { label: "📄 دليل كارت", send: "دليل كارت" },
+      { label: "📄 دليل باب", send: "دليل باب" },
+      { label: "📄 دليل كامة", send: "دليل كامة" }
+    ]
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("API Error:", err);
+  res.status(500).json({
+    reply: "حدث خطأ مؤقت. برجاء المحاولة مرة أخرى.",
+    context: req.body?.context || {}
+  });
+});
+
+const PORT = Number(process.env.PORT || 3000);
+app.listen(PORT, () => console.log("Server running on", PORT));
   return (K.greetings?.triggers || []).some(t => {
     const tt = normalize(t);
     return tt && (m === tt || m.includes(tt));
