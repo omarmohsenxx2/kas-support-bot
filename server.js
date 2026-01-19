@@ -182,6 +182,49 @@ function manualSuggestions(message) {
   ];
 }
 
+/* ===========================
+   ✅ إضافة الأرقام (بدون تغيير أي شيء آخر)
+   - تعمل مع صيغة departments القديمة (phones/notes)
+   - وتعمل مع الصيغة الجديدة (admin/branches)
+=========================== */
+
+function deptMenuSuggestions() {
+  const deps = safeObj(K.departments);
+  return Object.keys(deps).map(k => ({ label: k, send: "أرقام " + k }));
+}
+
+function formatDeptAllPhones(deptName) {
+  const deps = safeObj(K.departments);
+  const d = safeObj(deps[deptName]);
+  if (!Object.keys(d).length) return "القسم غير متاح حالياً.";
+
+  // ✅ لو الصيغة الجديدة موجودة (admin/branches)
+  const admin = safeArray(d.admin).filter(Boolean);
+  const branches = safeObj(d.branches);
+
+  if (admin.length || Object.keys(branches).length) {
+    let out = `☎️ ${deptName}\n`;
+
+    if (admin.length) {
+      out += `\nإدارة ${deptName}:\n- ${admin.join("\n- ")}\n`;
+    }
+
+    const branchNames = Object.keys(branches);
+    if (branchNames.length) {
+      out += `\nأرقام الفروع:\n`;
+      for (const bn of branchNames) {
+        const nums = safeArray(branches[bn]).filter(Boolean);
+        if (nums.length) out += `- ${bn}: ${nums.join(" - ")}\n`;
+      }
+    }
+
+    return out.trim();
+  }
+
+  // ✅ لو الصيغة القديمة (phones/notes) → نستخدم دالتك القديمة
+  return `بيانات ${deptName}:\n${formatPhones(d)}`.trim();
+}
+
 // ---- Routes ----
 app.get("/", (req, res) => res.send("KAS Bot is running"));
 
@@ -215,6 +258,7 @@ app.post("/chat", (req, res) => {
           { label: "📄 دليل كارت", send: "دليل كارت" },
           { label: "📄 دليل باب", send: "دليل باب" },
           { label: "📄 دليل كامة", send: "دليل كامة" },
+          { label: "☎️ الأرقام", send: "الأرقام" }, // ✅ إضافة فقط
           { label: "🛒 المتجر", send: "المتجر" }
         ]
       });
@@ -224,6 +268,32 @@ app.post("/chat", (req, res) => {
     const detectedProduct = detectProductId(message);
     if (detectedProduct) nextContext.lastProductId = detectedProduct;
     const productId = detectedProduct || nextContext.lastProductId || null;
+
+    /* ✅ إضافة الأرقام (قائمة + تفاصيل)
+       - "الأرقام" → أزرار الأقسام
+       - "أرقام المبيعات" → كل أرقام المبيعات
+    */
+    if (m === "الارقام" || m === "الأرقام" || m === "ارقام" || m === "أرقام") {
+      return res.json({
+        reply: "اختار القسم علشان تظهر لك كل الأرقام 👇",
+        context: nextContext,
+        suggestions: deptMenuSuggestions()
+      });
+    }
+
+    // لو كتب "أرقام <اسم القسم>"
+    if (m.includes("ارقام") || m.includes("أرقام")) {
+      const deps = safeObj(K.departments);
+      for (const k of Object.keys(deps)) {
+        if (m.includes(normalize(k))) {
+          return res.json({
+            reply: formatDeptAllPhones(k),
+            context: nextContext
+          });
+        }
+      }
+    }
+    // -------- نهاية إضافة الأرقام --------
 
     // store
     if (m === "المتجر" || m.includes("متجر")) {
@@ -406,6 +476,7 @@ app.post("/chat", (req, res) => {
         { label: "📄 دليل كارت", send: "دليل كارت" },
         { label: "📄 دليل باب", send: "دليل باب" },
         { label: "📄 دليل كامة", send: "دليل كامة" },
+        { label: "☎️ الأرقام", send: "الأرقام" }, // ✅ إضافة فقط
         { label: "🛒 المتجر", send: "المتجر" }
       ]
     });
