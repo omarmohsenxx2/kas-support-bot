@@ -102,11 +102,11 @@ module.exports = {
       manuals: [{ title: "KAS UPS Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-UPS-data-sheet.pdf" }]
     },
 
-    // ✅ كامة 09 (تحديث الرابط + إزالة alias "09" لوحده لتجنب لقط غلط)
+    // ✅ كامة 09 (تحديث الرابط + حذف alias رقم لوحده لتجنب لقط غلط)
     cam_09: {
       type: "cams",
       name: "كامة 09",
-      aliases: ["cam 09", "كامة 09", "الكامة 09", "برشور الكامة 09", "cam09", "kama 09"],
+      aliases: ["cam 09", "كامة 09", "الكامة 09", "برشور الكامة 09", "cam09"],
       url: "https://egy-tronix.com/",
       manuals: [{ title: "برشور الكامة 09", url: "https://egy-tronix.com/wp-content/uploads/2025/10/برشور-الكامة-09-1.pdf" }]
     },
@@ -115,12 +115,12 @@ module.exports = {
     cam_08: {
       type: "cams",
       name: "كامة 08",
-      aliases: ["cam 08", "كامة 08", "الكامة 08", "فلاير الكامة 08", "cam08", "kama 08"],
+      aliases: ["cam 08", "كامة 08", "الكامة 08", "فلاير الكامة 08", "cam08"],
       url: "https://egy-tronix.com/",
       manuals: [{ title: "فلاير الكامة 08", url: "https://egy-tronix.com/wp-content/uploads/2025/10/فلاير-الكامة-الجديد-08.pdf" }]
     },
 
-    // ✅ باب أوتوماتيك (3 أدلة)
+    // ✅ باب أوتوماتيك (3 ملفات PDF)
     automatic_door: {
       type: "doors",
       name: "باب أوتوماتيك",
@@ -128,21 +128,21 @@ module.exports = {
       url: "https://egy-tronix.com/elevator-automatic-doors/",
       manuals: [
         {
-          title: "دليل تركيب/استخدام باب أوتوماتيك (تلسكوبي خارجي/داخلي) V1",
+          title: "دليل تركيب واستخدام باب أوتوماتيك (تلسكوبي خارجي/داخلي) V1",
           url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-تلسكوبي-V1-PDF.pdf"
         },
         {
-          title: "دليل تركيب/استخدام باب أوتوماتيك (سنتر تلسكوبي خارجي/داخلي) V1",
+          title: "دليل تركيب واستخدام باب أوتوماتيك (سنتر تلسكوبي خارجي/داخلي) V1",
           url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-سنتر-تلسكوبيV1-PDF.pdf"
         },
         {
-          title: "دليل تركيب/استخدام باب أوتوماتيك (سنتر خارجي/داخلي) V1",
+          title: "دليل تركيب واستخدام باب أوتوماتيك (سنتر خارجي/داخلي) V1",
           url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-سنتر-V1-PDF.pdf"
         }
       ]
     },
 
-    // ✅ باب Folding
+    // ✅ باب فولدينج
     folding_door: {
       type: "doors",
       name: "باب فولدينج",
