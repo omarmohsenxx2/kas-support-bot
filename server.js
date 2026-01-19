@@ -280,12 +280,14 @@ if (isManualIntent(message)) {
 }
 
     // branches
-    if (m.includes("عناوين الفروع")) {
-      return res.json({
-        reply: `اختر الفرع:\n- ${safeArray(K.branches?.list).join("\n- ")}`,
-        context: nextContext
-      });
-    }
+if (m.includes("عناوين الفروع")) {
+  const branches = safeArray(K.branches?.list);
+  return res.json({
+    reply: "اختار الفرع من الأزرار 👇",
+    context: nextContext,
+    suggestions: branches.map(b => ({ label: b, send: "عنوان " + b }))
+  });
+}
 
     if (isAddressIntent(message)) {
       // detect basic aliases
