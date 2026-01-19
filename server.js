@@ -238,27 +238,32 @@ app.post("/chat", (req, res) => {
       });
     }
 
-    // manuals
-    if (isManualIntent(message)) {
-      // إذا قال دليل فقط/أو دليل كارت/باب/كامة → suggestions
-      if (
-        !productId ||
-        m === "دليل" ||
-        m.includes("ادله") ||
-        m.includes("أدلة") ||
-        m.includes("دليل كارت") ||
-        m.includes("دليل باب") ||
-        m.includes("دليل كامه") ||
-        m.includes("دليل كامة")
-      ) {
-        return res.json({
-          reply: "اختار الدليل اللي محتاجه من الأزرار 👇",
-          context: nextContext,
-          suggestions: manualSuggestions(message)
-        });
-      }
-      return res.json({ reply: manualsFor(productId), context: nextContext });
-    }
+// manuals
+if (isManualIntent(message)) {
+  // أوامر الأقسام فقط (بدون اسم منتج)
+  const isCategoryOnly =
+    m === "دليل" ||
+    m === "ادله" ||
+    m === "ادله الاستخدام" ||
+    m === "أدلة" ||
+    m === "أدلة الاستخدام" ||
+    m === "دليل كارت" ||
+    m === "دليل باب" ||
+    m === "دليل كامه" ||
+    m === "دليل كامة";
+
+  // لو المستخدم طلب قسم عام أو المنتج مش معروف → اعرض أزرار الاختيار
+  if (!productId || isCategoryOnly) {
+    return res.json({
+      reply: "اختار الدليل اللي محتاجه من الأزرار 👇",
+      context: nextContext,
+      suggestions: manualSuggestions(message)
+    });
+  }
+
+  // لو فيه منتج معروف → اعرض ملفات المنتج مباشرة
+  return res.json({ reply: manualsFor(productId), context: nextContext });
+}
 
     // branches
     if (m.includes("عناوين الفروع")) {
