@@ -1,10 +1,22 @@
 // server.js
 const express = require("express");
-const fetch = require("node-fetch");
 const app = express();
 
 app.use(express.json({ limit: "200kb" }));
 
+// CORS
+app.use((req, res, next) => {
+  const allowedOrigins = ["https://egy-tronix.com", "https://www.egy-tronix.com"];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+// ---- Load knowledge safely ----
 let K = {};
 let KNOWLEDGE_OK = false;
 let KNOWLEDGE_ERROR = null;
@@ -17,20 +29,20 @@ try {
   KNOWLEDGE_ERROR = String(e && (e.stack || e.message || e));
   console.error("FAILED TO LOAD ./knowledge.js");
   console.error(KNOWLEDGE_ERROR);
-  K = { greetings: { triggers: [], reply: "أهلاً" }, branches: { list: [], data: {} }, departments: {}, products: {} };
+
+  // minimal fallback
+  K = {
+    hotline: "01146925558",
+    storeUrl: "",
+    greetings: { triggers: ["اهلا", "السلام عليكم", "hello", "hi"], reply: "أهلاً 👋" },
+    branches: { list: [], data: {} },
+    departments: {},
+    products: {},
+    autoDoorSupportGroup: { url: "" }
+  };
 }
 
-app.use((req, res, next) => {
-  const allowedOrigins = ["https://egy-tronix.com", "https://www.egy-tronix.com"];
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Vary", "Origin");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
-
+// Never crash the process
 process.on("unhandledRejection", (err) => console.error("UnhandledRejection:", err));
 process.on("uncaughtException", (err) => console.error("UncaughtException:", err));
 
@@ -43,12 +55,25 @@ function normalize(s) {
     .replace(/\s+/g, " ");
 }
 
+function safeArray(x) { return Array.isArray(x) ? x : []; }
+function safeObj(x) { return x && typeof x === "object" ? x : {}; }
+
 function isGreeting(msg) {
   const m = normalize(msg);
-  return (K.greetings?.triggers || []).some(t => {
+  return safeArray(K.greetings?.triggers).some(t => {
     const tt = normalize(t);
     return tt && (m === tt || m.includes(tt));
   });
+}
+
+function isManualIntent(msg) {
+  const m = normalize(msg);
+  return m.includes("دليل") || m.includes("كتالوج") || m.includes("manual") || m.includes("datasheet") || m.includes("pdf") || m.includes("برشور");
+}
+
+function isPriceIntent(msg) {
+  const m = normalize(msg);
+  return m.includes("سعر") || m.includes("اسعار") || m.includes("price") || m.includes("كام") || m.includes("تكلف") || m.includes("تكلفة");
 }
 
 function isAddressIntent(msg) {
@@ -56,363 +81,30 @@ function isAddressIntent(msg) {
   return m.includes("عنوان") || m.includes("فرع") || m.includes("فروع") || m.includes("فين") || m.includes("مكان");
 }
 
-function isPriceIntent(msg) {
-  const m = normalize(msg);
-  return m.includes("سعر") || m.includes("اسعار") || m.includes("price") || m.includes("كام") || m.includes("تكلف");
-}
-
 function isDeptIntent(msg) {
   const m = normalize(msg);
   return m.includes("دعم") || m.includes("مبيعات") || m.includes("تسويق") || m.includes("مشتريات") || m.includes("خدمة العملاء") || m.includes("خدمه العملاء") || m.includes("رقم") || m.includes("ارقام") || m.includes("أرقام");
 }
 
-function isManualIntent(msg) {
-  const m = normalize(msg);
-  return m.includes("دليل") || m.includes("كتالوج") || m.includes("datasheet") || m.includes("manual") || m.includes("pdf") || m.includes("برشور");
-}
-
-function detectDepartment(msg) {
-  const m = normalize(msg);
-  const deps = K.departments || {};
-  for (const k of Object.keys(deps)) {
-    if (m.includes(normalize(k))) return k;
-  }
-  if (m.includes("دعم")) return "الدعم الفني";
-  if (m.includes("مبيعات")) return "المبيعات";
-  if (m.includes("تسويق")) return "التسويق";
-  if (m.includes("مشتريات")) return "المشتريات";
-  if (m.includes("خدمة") || m.includes("خدمه")) return "خدمة العملاء";
-  return null;
-}
-
-const BRANCH_ALIASES = {
-  "الفرع الرئيسي": "فيصل",
-  "الرئيسي": "فيصل",
-  "الاداره": "فيصل",
-  "الادارة": "فيصل",
-  "ادارة": "فيصل",
-  "فيصل": "فيصل",
-  "الحلميه": "حلمية الزيتون",
-  "الحلمية": "حلمية الزيتون",
-  "اسكندرية": "الإسكندرية",
-  "اسكندريه": "الإسكندرية",
-  "القاهره": "القاهرة"
-};
-
-function detectBranch(msg) {
-  const m = normalize(msg);
-  for (const [alias, branchName] of Object.entries(BRANCH_ALIASES)) {
-    if (m.includes(normalize(alias))) return branchName;
-  }
-  const list = K.branches?.list || [];
-  for (const b of list) if (m.includes(normalize(b))) return b;
-  return null;
-}
-
-function detectProductId(msg) {
-  const m = normalize(msg);
-  const products = K.products || {};
-  for (const [id, p] of Object.entries(products)) {
-    if (p?.name && m.includes(normalize(p.name))) return id;
-    const aliases = Array.isArray(p?.aliases) ? p.aliases : [];
-    for (const a of aliases) if (m.includes(normalize(a))) return id;
-  }
-  return null;
-}
-
 function formatPhones(obj) {
-  const phones = (obj?.phones || []).filter(Boolean);
+  const o = safeObj(obj);
+  const phones = safeArray(o.phones).filter(Boolean);
   let out = "";
   if (phones.length) out += `ارقام الهاتف:\n- ${phones.join("\n- ")}\n`;
-  if (obj?.notes) out += `${obj.notes}\n`;
+  if (o.notes) out += `${o.notes}\n`;
   return out.trim();
 }
 
-function manualSuggestionsByType(type) {
-  const products = K.products || {};
-  const items = [];
-  for (const [id, p] of Object.entries(products)) {
-    if (p?.type === type) {
-      items.push({ label: p.name, send: "دليل " + p.name });
-    }
-  }
-  return items;
-}
+// ---- Build product index once ----
+const PRODUCTS = safeObj(K.products);
+const PRODUCT_LIST = Object.entries(PRODUCTS).map(([id, p]) => ({ id, p: safeObj(p) }));
 
-function manualCategorySuggestions(message) {
+function detectProductId(message) {
   const m = normalize(message);
-
-  // لو قال "كارت"
-  if (m.includes("كارت") || m.includes("كنترول") || m.includes("board") || m.includes("card")) {
-    return manualSuggestionsByType("cards").concat(manualSuggestionsByType("power"));
-  }
-
-  // لو قال "باب"
-  if (m.includes("باب") || m.includes("doors") || m.includes("door")) {
-    return manualSuggestionsByType("doors").concat([
-      { label: "جروب دعم الأبواب الأوتوماتيك", send: "جروب دعم الأبواب" }
-    ]);
-  }
-
-  // لو قال "كامة"
-  if (m.includes("كامة") || m.includes("cam")) {
-    return manualSuggestionsByType("cams");
-  }
-
-  // افتراضي: اعرض أقسام
-  return [
-    { label: "دلائل الكروت", send: "دليل كارت" },
-    { label: "دلائل الأبواب", send: "دليل باب" },
-    { label: "دلائل الكامات", send: "دليل كامة" }
-  ];
-}
-
-function formatManuals(productId) {
-  const p = K.products?.[productId];
-  const manuals = Array.isArray(p?.manuals) ? p.manuals : [];
-  if (!p) return "المنتج غير معروف حالياً.";
-  if (!manuals.length) {
-    return `لا توجد ملفات PDF مضافة حالياً لـ ${p.name}.\nرابط صفحة المنتج:\n${p.url || ""}`.trim();
-  }
-  const lines = manuals.map(m => `- ${m.title}:\n${m.url}`);
-  return `دلائل/كتالوج ${p.name}:\n${lines.join("\n")}`.trim();
-}
-
-// ---- Health ----
-app.get("/", (req, res) => res.send("KAS Bot is running"));
-
-app.get("/debug", (req, res) => {
-  res.json({
-    ok: true,
-    knowledge_ok: KNOWLEDGE_OK,
-    knowledge_error: KNOWLEDGE_ERROR,
-    products_count: Object.keys(K.products || {}).length,
-    now: new Date().toISOString()
-  });
-});
-
-// ---- Chat ----
-app.post("/chat", (req, res) => {
-  const message = String(req.body?.message || "");
-  const context = (req.body?.context && typeof req.body.context === "object") ? req.body.context : {};
-  const nextContext = { ...context };
-
-  // تحية
-  if (isGreeting(message)) {
-    return res.json({
-      reply: (K.greetings?.reply || "أهلاً 👋") + (K.hotline ? `\n\n☎️ الخط الساخن: ${K.hotline}` : ""),
-      context: nextContext,
-      suggestions: [
-        { label: "📄 دلائل الاستخدام", send: "دليل" },
-        { label: "💰 الأسعار", send: "سعر" },
-        { label: "📍 عناوين الفروع", send: "عناوين الفروع" },
-        { label: "🛠️ الدعم الفني", send: "رقم الدعم الفني" }
-      ]
-    });
-  }
-
-  // تحديث سياق المنتج
-  const detectedProduct = detectProductId(message);
-  if (detectedProduct) nextContext.lastProductId = detectedProduct;
-  const productId = detectedProduct || nextContext.lastProductId || null;
-
-  // سعر
-  if (isPriceIntent(message)) {
-    return res.json({
-      reply:
-        "لمزيد من المعلومات عن الأسعار والمواصفات الخاصة بمنتجاتنا، يمكنك زيارة متجرنا الإلكتروني:\n" +
-        (K.storeUrl || "PUT_STORE_URL_HERE"),
-      context: nextContext,
-      suggestions: [
-        { label: "🛒 زيارة المتجر", send: "المتجر" },
-        { label: "💰 أرقام المبيعات", send: "أرقام المبيعات" }
-      ]
-    });
-  }
-
-  if (normalize(message) === "المتجر") {
-    return res.json({ reply: `متجر KAS الإلكتروني:\n${K.storeUrl || "PUT_STORE_URL_HERE"}`, context: nextContext });
-  }
-
-  // أقسام
-  if (isDeptIntent(message)) {
-    const dept = detectDepartment(message);
-    if (!dept) {
-      return res.json({
-        reply: `حضرتك تقصد أي قسم؟\n- ${Object.keys(K.departments || {}).join("\n- ")}`,
-        context: nextContext
-      });
-    }
-    return res.json({ reply: `بيانات ${dept}:\n${formatPhones(K.departments?.[dept])}`, context: nextContext });
-  }
-
-  // عناوين الفروع
-  if (normalize(message).includes("عناوين الفروع")) {
-    return res.json({ reply: `اختر الفرع:\n- ${(K.branches?.list || []).join("\n- ")}`, context: nextContext });
-  }
-
-  if (isAddressIntent(message)) {
-    const branch = detectBranch(message);
-    if (!branch) {
-      return res.json({ reply: `من فضلك حدّد الفرع:\n- ${(K.branches?.list || []).join("\n- ")}`, context: nextContext });
-    }
-    const b = K.branches?.data?.[branch];
-    return res.json({ reply: `عنوان فرع ${branch}:\n${b?.address || "غير مُضاف بعد"}`, context: nextContext });
-  }
-
-  // جروب الأبواب
-  if (normalize(message).includes("جروب") && normalize(message).includes("باب")) {
-    return res.json({
-      reply: `جروب كاس للدعم الفني للأبواب الأوتوماتيك:\n${K.autoDoorSupportGroup?.url || ""}`,
-      context: nextContext
-    });
-  }
-
-  // دلائل الاستخدام
-  if (isManualIntent(message)) {
-    // لو المستخدم قال "دليل" فقط أو "دليل كارت/باب/كامة" → اقتراحات أزرار
-    const m = normalize(message);
-    if (!productId || m === "دليل" || m.includes("دليل كارت") || m.includes("دليل باب") || m.includes("دليل كامه") || m.includes("دليل كامة")) {
-      const suggestions = manualCategorySuggestions(message);
-      return res.json({
-        reply: "اختار الدليل اللي محتاجه من الأزرار:",
-        context: nextContext,
-        suggestions
-      });
-    }
-
-    // لو في سياق منتج → ابعت الدليل
-    return res.json({
-      reply: formatManuals(productId),
-      context: nextContext
-    });
-  }
-
-  // لو كتب اسم منتج (حتى بدون كلمة دليل) — اعرض أزرار
-  if (productId) {
-    const p = K.products?.[productId];
-    return res.json({
-      reply:
-        `${p?.name || "المنتج"}\n` +
-        `لو محتاج الدليل اضغط الزر:\n`,
-      context: nextContext,
-      suggestions: [
-        { label: "📄 دليل/كتالوج " + (p?.name || "المنتج"), send: "دليل " + (p?.name || "") },
-        { label: "💰 أسعار " + (p?.name || "المنتج"), send: "سعر " + (p?.name || "") }
-      ]
-    });
-  }
-
-  return res.json({
-    reply: "مش فاهم سؤالك بالكامل. جرّب تكتب: (دليل) أو (دليل كارت) أو (دليل باب) أو اسم المنتج.",
-    context: nextContext,
-    suggestions: [
-      { label: "📄 دلائل الاستخدام", send: "دليل" },
-      { label: "📄 دليل كارت", send: "دليل كارت" },
-      { label: "📄 دليل باب", send: "دليل باب" },
-      { label: "📄 دليل كامة", send: "دليل كامة" }
-    ]
-  });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error("API Error:", err);
-  res.status(500).json({
-    reply: "حدث خطأ مؤقت. برجاء المحاولة مرة أخرى.",
-    context: req.body?.context || {}
-  });
-});
-
-const PORT = Number(process.env.PORT || 3000);
-app.listen(PORT, () => console.log("Server running on", PORT));
-  return (K.greetings?.triggers || []).some(t => {
-    const tt = normalize(t);
-    return tt && (m === tt || m.includes(tt));
-  });
-}
-
-function isAddressIntent(msg) {
-  const m = normalize(msg);
-  return m.includes("عنوان") || m.includes("فرع") || m.includes("فروع") || m.includes("فين") || m.includes("مكان") || m.includes("لوكيشن") || m.includes("location");
-}
-
-function isPriceIntent(msg) {
-  const m = normalize(msg);
-  return m.includes("سعر") || m.includes("اسعار") || m.includes("السعر") || m.includes("price") || m.includes("كام") || m.includes("تكلف") || m.includes("تكلفة");
-}
-
-function isDeptIntent(msg) {
-  const m = normalize(msg);
-  return m.includes("دعم") || m.includes("مبيعات") || m.includes("تسويق") || m.includes("مشتريات") || m.includes("خدمه العملاء") || m.includes("خدمة العملاء") || m.includes("رقم") || m.includes("ارقام") || m.includes("أرقام");
-}
-
-function isManualIntent(msg) {
-  const m = normalize(msg);
-  return m.includes("دليل") || m.includes("كتالوج") || m.includes("catalog") || m.includes("datasheet") || m.includes("data sheet") || m.includes("manual") || m.includes("user guide") || m.includes("pdf");
-}
-
-function isDoorTopic(msg) {
-  const m = normalize(msg);
-  return m.includes("باب") || m.includes("فولدينج") || m.includes("اوتوماتيك") || m.includes("automatic");
-}
-
-const BRANCH_ALIASES = {
-  "الفرع الرئيسي": "فيصل",
-  "فرع رئيسي": "فيصل",
-  "رئيسي": "فيصل",
-  "الرئيسي": "فيصل",
-  "الاداره": "فيصل",
-  "الادارة": "فيصل",
-  "اداره": "فيصل",
-  "ادارة": "فيصل",
-  "فيصل": "فيصل",
-  "الحلميه": "حلمية الزيتون",
-  "الحلمية": "حلمية الزيتون",
-  "حلميه": "حلمية الزيتون",
-  "حلمية": "حلمية الزيتون",
-  "اسكندريه": "الإسكندرية",
-  "اسكندرية": "الإسكندرية",
-  "القاهره": "القاهرة"
-};
-
-function detectBranch(msg) {
-  const m = normalize(msg);
-  for (const [alias, branchName] of Object.entries(BRANCH_ALIASES)) {
-    if (m.includes(normalize(alias))) return branchName;
-  }
-  const list = K.branches?.list || [];
-  for (const b of list) {
-    const bn = normalize(b);
-    if (bn && m.includes(bn)) return b;
-  }
-  return null;
-}
-
-function detectDepartment(msg) {
-  const m = normalize(msg);
-  const deps = K.departments || {};
-  for (const k of Object.keys(deps)) {
-    const kk = normalize(k);
-    if (kk && m.includes(kk)) return k;
-  }
-  if (m.includes("دعم")) return "الدعم الفني";
-  if (m.includes("خدمه") || m.includes("خدمة")) return "خدمة العملاء";
-  if (m.includes("مبيعات")) return "المبيعات";
-  if (m.includes("تسويق")) return "التسويق";
-  if (m.includes("مشتريات")) return "المشتريات";
-  return null;
-}
-
-function detectProductId(msg) {
-  const m = normalize(msg);
-  const products = K.products || {};
-  for (const [id, p] of Object.entries(products)) {
-    const name = normalize(p?.name);
+  for (const { id, p } of PRODUCT_LIST) {
+    const name = normalize(p.name || "");
     if (name && m.includes(name)) return id;
-
-    const aliases = Array.isArray(p?.aliases) ? p.aliases : [];
-    for (const a of aliases) {
+    for (const a of safeArray(p.aliases)) {
       const aa = normalize(a);
       if (aa && m.includes(aa)) return id;
     }
@@ -420,100 +112,53 @@ function detectProductId(msg) {
   return null;
 }
 
-function formatPhones(obj) {
-  const phones = (obj?.phones || []).filter(Boolean);
-  const wa = (obj?.whatsapp || []).filter(Boolean);
-  let out = "";
-  if (phones.length) out += `ارقام الهاتف:\n- ${phones.join("\n- ")}\n`;
-  if (wa.length) out += `واتساب:\n- ${wa.join("\n- ")}\n`;
-  if (obj?.hours) out += `مواعيد العمل:\n${obj.hours}\n`;
-  if (obj?.notes) out += `${obj.notes}\n`;
-  return out.trim();
+function manualsFor(productId) {
+  const p = safeObj(PRODUCTS[productId]);
+  const manuals = safeArray(p.manuals);
+  if (!p.name) return "المنتج غير معروف حالياً.";
+  if (!manuals.length) {
+    return `لا توجد ملفات PDF مضافة حالياً لـ ${p.name}.\nرابط صفحة المنتج:\n${p.url || ""}`.trim();
+  }
+  return `دلائل/كتالوج ${p.name}:\n` + manuals.map(m => `- ${(m && m.title) || "ملف"}:\n${(m && m.url) || ""}`).join("\n");
 }
 
-function doorGroupHint() {
-  const g = K.autoDoorSupportGroup;
-  if (!g?.url) return "";
-  return `\n\nولمزيد من المعلومات وتفاصيل أكثر عن الأبواب الأوتوماتيك يمكنك الانضمام للجروب:\n${g.url}`;
-}
-
-function buildSuggestions(message, productId) {
-  const m = normalize(message);
+function suggestionsByType(type) {
   const out = [];
+  for (const { id, p } of PRODUCT_LIST) {
+    if (p.type === type && p.name) out.push({ label: p.name, send: "دليل " + p.name });
+  }
+  return out;
+}
 
-  if (productId) {
-    out.push({ label: "📄 دليل/كتالوج المنتج", send: "دليل " + (K.products?.[productId]?.name || "المنتج") });
-    out.push({ label: "💰 أسعار المنتج", send: "سعر " + (K.products?.[productId]?.name || "المنتج") });
-    out.push({ label: "🛠️ رقم الدعم الفني", send: "رقم الدعم الفني" });
+function manualSuggestions(message) {
+  const m = normalize(message);
+
+  // دليل كارت
+  if (m.includes("كارت") || m.includes("كنترول") || m.includes("board") || m.includes("card")) {
+    return suggestionsByType("cards").concat(suggestionsByType("power"));
   }
 
-  if (isPriceIntent(message)) {
-    return [
-      { label: "🛒 زيارة المتجر الإلكتروني", send: "المتجر" },
-      { label: "💰 أرقام المبيعات", send: "أرقام المبيعات" },
-      { label: "☎️ الخط الساخن", send: "الخط الساخن" }
-    ];
+  // دليل باب
+  if (m.includes("باب") || m.includes("door") || m.includes("doors")) {
+    const s = suggestionsByType("doors");
+    s.push({ label: "جروب دعم الأبواب الأوتوماتيك", send: "جروب دعم الأبواب" });
+    return s;
   }
 
-  if (isAddressIntent(message)) {
-    return [
-      { label: "📍 عنوان الفرع الرئيسي", send: "عنوان الفرع الرئيسي" },
-      { label: "📍 عنوان فرع الحلمية", send: "عنوان فرع الحلمية" },
-      { label: "📍 عنوان فرع الإسكندرية", send: "عنوان فرع الإسكندرية" }
-    ];
+  // دليل كامة
+  if (m.includes("كامة") || m.includes("cam")) {
+    return suggestionsByType("cams");
   }
 
-  if (out.length) return out;
-
+  // دليل فقط
   return [
-    { label: "📍 عناوين الفروع", send: "عناوين الفروع" },
-    { label: "🛠️ رقم الدعم الفني", send: "رقم الدعم الفني" },
-    { label: "💰 أرقام المبيعات", send: "أرقام المبيعات" },
-    { label: "☎️ الخط الساخن", send: "الخط الساخن" }
+    { label: "دلائل الكروت", send: "دليل كارت" },
+    { label: "دلائل الأبواب", send: "دليل باب" },
+    { label: "دلائل الكامات", send: "دليل كامة" }
   ];
 }
 
-function bestSnippetForProduct(productId, message) {
-  const p = K.products?.[productId];
-  const snippets = Array.isArray(p?.snippets) ? p.snippets : [];
-  if (!snippets.length) return null;
-
-  const msgTokens = new Set(tokenize(message));
-  let best = null;
-  let bestScore = 0;
-
-  for (const s of snippets) {
-    const keys = Array.isArray(s.keywords) ? s.keywords : [];
-    let score = 0;
-    for (const k of keys) {
-      const kt = tokenize(k);
-      for (const t of kt) {
-        if (msgTokens.has(t)) score += 1;
-      }
-    }
-    // bonus لو الرسالة فيها اسم المنتج
-    const nameTokens = tokenize(p?.name || "");
-    for (const t of nameTokens) if (msgTokens.has(t)) score += 1;
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = s;
-    }
-  }
-
-  return bestScore >= 1 ? best : null;
-}
-
-function formatManuals(productId) {
-  const p = K.products?.[productId];
-  const manuals = Array.isArray(p?.manuals) ? p.manuals : [];
-  if (!manuals.length) return `لا توجد ملفات PDF مضافة حالياً لهذا المنتج.\nرابط صفحة المنتج:\n${p?.url || ""}`.trim();
-
-  const lines = manuals.map(m => `- ${m.title}:\n${m.url}`);
-  return `دلائل/كتالوج ${p.name}:\n${lines.join("\n")}`.trim();
-}
-
-// ---- Health / Debug ----
+// ---- Routes ----
 app.get("/", (req, res) => res.send("KAS Bot is running"));
 
 app.get("/debug", (req, res) => {
@@ -521,165 +166,180 @@ app.get("/debug", (req, res) => {
     ok: true,
     knowledge_ok: KNOWLEDGE_OK,
     knowledge_error: KNOWLEDGE_ERROR,
-    branches_count: (K.branches?.list || []).length,
-    departments_count: Object.keys(K.departments || {}).length,
-    products_count: Object.keys(K.products || {}).length,
+    products_count: PRODUCT_LIST.length,
+    branches_count: safeArray(K.branches?.list).length,
+    departments_count: Object.keys(safeObj(K.departments)).length,
     now: new Date().toISOString()
   });
 });
 
-// ---- Chat ----
 app.post("/chat", (req, res) => {
-  const message = String(req.body?.message || "");
-  const context = (req.body?.context && typeof req.body.context === "object") ? req.body.context : {};
-  const nextContext = { ...context, lastUserMessage: message };
+  try {
+    const message = String(req.body?.message || "");
+    const context = safeObj(req.body?.context);
+    const nextContext = { ...context };
 
-  const m = normalize(message);
+    const m = normalize(message);
 
-  // أوامر ثابتة
-  if (m.includes("الخط الساخن") || (m.includes("خط") && m.includes("ساخن"))) {
-    return res.json({ reply: `☎️ الخط الساخن: ${K.hotline}`, context: nextContext });
-  }
-
-  if (m.includes("جروب") && (m.includes("باب") || m.includes("ابواب") || m.includes("الأبواب"))) {
-    return res.json({
-      reply: `جروب كاس للدعم الفني للأبواب الأوتوماتيك:\n${K.autoDoorSupportGroup?.url || ""}`,
-      context: nextContext
-    });
-  }
-
-  // تحية
-  if (isGreeting(message)) {
-    const hotline = K.hotline ? `\n\n☎️ الخط الساخن: ${K.hotline}` : "";
-    return res.json({ reply: (K.greetings?.reply || "أهلاً 👋") + hotline, context: nextContext });
-  }
-
-  // تحديث سياق المنتج
-  const detectedProduct = detectProductId(message);
-  if (detectedProduct) nextContext.lastProductId = detectedProduct;
-
-  const productId = detectedProduct || nextContext.lastProductId || null;
-
-  // أسعار
-  if (isPriceIntent(message)) {
-    const storeUrl = K.storeUrl || "PUT_STORE_URL_HERE";
-    return res.json({
-      reply:
-        "لمزيد من المعلومات عن الأسعار والمواصفات الخاصة بمنتجاتنا، يمكنك زيارة متجرنا الإلكتروني:\n" +
-        storeUrl,
-      context: nextContext,
-      suggestions: buildSuggestions(message, productId)
-    });
-  }
-
-  // المتجر
-  if (m === "المتجر" || m.includes("لينك المتجر") || m.includes("متجر")) {
-    const storeUrl = K.storeUrl || "PUT_STORE_URL_HERE";
-    return res.json({ reply: `متجر KAS الإلكتروني:\n${storeUrl}`, context: nextContext });
-  }
-
-  // أقسام
-  if (isDeptIntent(message)) {
-    const dept = detectDepartment(message);
-    if (!dept) {
+    // greeting
+    if (isGreeting(message)) {
       return res.json({
-        reply: `حضرتك تقصد أي قسم؟\n- ${Object.keys(K.departments || {}).join("\n- ")}`,
+        reply: (K.greetings?.reply || "أهلاً 👋") + (K.hotline ? `\n\n☎️ الخط الساخن: ${K.hotline}` : ""),
         context: nextContext,
-        suggestions: buildSuggestions(message, productId)
+        suggestions: [
+          { label: "📄 دلائل الاستخدام", send: "دليل" },
+          { label: "📄 دليل كارت", send: "دليل كارت" },
+          { label: "📄 دليل باب", send: "دليل باب" },
+          { label: "📄 دليل كامة", send: "دليل كامة" }
+        ]
       });
     }
-    const d = K.departments?.[dept];
-    const extra = isDoorTopic(message) ? doorGroupHint() : "";
-    return res.json({
-      reply: `بيانات ${dept}:\n${formatPhones(d)}${extra}`.trim(),
-      context: nextContext
-    });
-  }
 
-  // عناوين الفروع
-  if (m.includes("عناوين الفروع")) {
-    return res.json({
-      reply: `من فضلك حدّد الفرع المطلوب:\n- ${(K.branches?.list || []).join("\n- ")}`,
-      context: nextContext,
-      suggestions: buildSuggestions("عنوان", productId)
-    });
-  }
+    // update product context
+    const detectedProduct = detectProductId(message);
+    if (detectedProduct) nextContext.lastProductId = detectedProduct;
+    const productId = detectedProduct || nextContext.lastProductId || null;
 
-  if (isAddressIntent(message)) {
-    const branch = detectBranch(message);
-    if (!branch) {
+    // store
+    if (m === "المتجر" || m.includes("متجر")) {
+      return res.json({ reply: `متجر KAS الإلكتروني:\n${K.storeUrl || ""}`, context: nextContext });
+    }
+
+    // price
+    if (isPriceIntent(message)) {
       return res.json({
-        reply: `من فضلك حدّد الفرع المطلوب:\n- ${(K.branches?.list || []).join("\n- ")}`,
+        reply:
+          "لمزيد من المعلومات عن الأسعار والمواصفات الخاصة بمنتجاتنا، يمكنك زيارة متجرنا الإلكتروني:\n" +
+          (K.storeUrl || ""),
         context: nextContext,
-        suggestions: buildSuggestions(message, productId)
+        suggestions: [
+          { label: "🛒 زيارة المتجر", send: "المتجر" },
+          { label: "💰 أرقام المبيعات", send: "أرقام المبيعات" }
+        ]
       });
     }
-    const b = K.branches?.data?.[branch];
-    if (!b?.address) {
+
+    // door support group
+    if (m.includes("جروب") && (m.includes("باب") || m.includes("ابواب") || m.includes("الأبواب"))) {
       return res.json({
-        reply: `العنوان غير مُضاف بعد لفرع ${branch}.`,
-        context: nextContext,
-        suggestions: buildSuggestions("عنوان", productId)
+        reply: `جروب كاس للدعم الفني للأبواب الأوتوماتيك:\n${K.autoDoorSupportGroup?.url || ""}`,
+        context: nextContext
       });
     }
-    return res.json({
-      reply: `عنوان فرع ${branch}:\n${b.address}\n${formatPhones(b) ? "\n" + formatPhones(b) : ""}`.trim(),
-      context: nextContext
-    });
-  }
 
-  // دليل/كتالوج
-  if (isManualIntent(message)) {
-    if (!productId) {
+    // manuals
+    if (isManualIntent(message)) {
+      // إذا قال دليل فقط/أو دليل كارت/باب/كامة → suggestions
+      if (!productId || m === "دليل" || m.includes("دليل كارت") || m.includes("دليل باب") || m.includes("دليل كامه") || m.includes("دليل كامة")) {
+        return res.json({
+          reply: "اختار الدليل اللي محتاجه من الأزرار:",
+          context: nextContext,
+          suggestions: manualSuggestions(message)
+        });
+      }
+      return res.json({ reply: manualsFor(productId), context: nextContext });
+    }
+
+    // branches
+    if (m.includes("عناوين الفروع")) {
       return res.json({
-        reply: "من فضلك حدّد اسم المنتج المطلوب (مثال: كاس 2025 / كاس 2021 / جولد 2030 / UPS / Inverter / ميني 8 / كامة 09).",
-        context: nextContext,
-        suggestions: buildSuggestions("دليل", null)
+        reply: `اختر الفرع:\n- ${safeArray(K.branches?.list).join("\n- ")}`,
+        context: nextContext
       });
     }
-    return res.json({
-      reply: formatManuals(productId),
-      context: nextContext,
-      suggestions: buildSuggestions("دليل", productId)
-    });
-  }
 
-  // أي سؤال عن منتج (بحث داخل snippets + روابط)
-  if (productId) {
-    const p = K.products?.[productId];
-    const snippet = bestSnippetForProduct(productId, message);
-
-    let reply = "";
-    if (snippet?.text) {
-      reply += `${p.name}:\n${snippet.text}\n\n`;
-    } else {
-      reply += `${p.name}:\nلو تحب ابعتلك دليل/كتالوج المنتج اكتب: (دليل ${p.name})\n\n`;
+    if (isAddressIntent(message)) {
+      // detect basic aliases
+      const aliases = {
+        "الفرع الرئيسي": "فيصل",
+        "الرئيسي": "فيصل",
+        "الاداره": "فيصل",
+        "الادارة": "فيصل",
+        "ادارة": "فيصل",
+        "فيصل": "فيصل",
+        "الحلميه": "حلمية الزيتون",
+        "الحلمية": "حلمية الزيتون",
+        "اسكندرية": "الإسكندرية",
+        "اسكندريه": "الإسكندرية",
+        "القاهره": "القاهرة"
+      };
+      let branch = null;
+      for (const k of Object.keys(aliases)) {
+        if (m.includes(normalize(k))) { branch = aliases[k]; break; }
+      }
+      if (!branch) {
+        for (const b of safeArray(K.branches?.list)) {
+          if (m.includes(normalize(b))) { branch = b; break; }
+        }
+      }
+      if (!branch) {
+        return res.json({
+          reply: `من فضلك حدّد الفرع:\n- ${safeArray(K.branches?.list).join("\n- ")}`,
+          context: nextContext
+        });
+      }
+      const bdata = safeObj(K.branches?.data?.[branch]);
+      return res.json({ reply: `عنوان فرع ${branch}:\n${bdata.address || "غير مُضاف بعد"}`, context: nextContext });
     }
 
-    if (p?.url) reply += `رابط صفحة المنتج:\n${p.url}\n`;
-    const manuals = Array.isArray(p?.manuals) ? p.manuals : [];
-    if (manuals.length) {
-      reply += `\nدلائل/كتالوج:\n` + manuals.slice(0, 2).map(m => `- ${m.title}`).join("\n");
+    // departments
+    if (isDeptIntent(message)) {
+      const deps = safeObj(K.departments);
+      let dept = null;
+      for (const k of Object.keys(deps)) {
+        if (m.includes(normalize(k))) { dept = k; break; }
+      }
+      if (!dept) {
+        if (m.includes("دعم")) dept = "الدعم الفني";
+        else if (m.includes("مبيعات")) dept = "المبيعات";
+        else if (m.includes("تسويق")) dept = "التسويق";
+        else if (m.includes("مشتريات")) dept = "المشتريات";
+        else if (m.includes("خدمة") || m.includes("خدمه")) dept = "خدمة العملاء";
+      }
+
+      if (!dept || !deps[dept]) {
+        return res.json({
+          reply: `حضرتك تقصد أي قسم؟\n- ${Object.keys(deps).join("\n- ")}`,
+          context: nextContext
+        });
+      }
+      return res.json({ reply: `بيانات ${dept}:\n${formatPhones(deps[dept])}`, context: nextContext });
     }
 
-    if (isDoorTopic(message)) reply += doorGroupHint();
+    // if message contains product name, show quick buttons
+    if (productId) {
+      const p = safeObj(PRODUCTS[productId]);
+      return res.json({
+        reply: `${p.name || "المنتج"}\nلو محتاج الدليل اضغط الزر:`,
+        context: nextContext,
+        suggestions: [
+          { label: "📄 دليل/كتالوج " + (p.name || "المنتج"), send: "دليل " + (p.name || "") },
+          { label: "💰 أسعار " + (p.name || "المنتج"), send: "سعر " + (p.name || "") }
+        ]
+      });
+    }
 
+    // fallback
     return res.json({
-      reply: reply.trim(),
+      reply: "اكتب: (دليل) أو (دليل كارت/باب/كامة) أو اسم المنتج.",
       context: nextContext,
-      suggestions: buildSuggestions(message, productId)
+      suggestions: [
+        { label: "📄 دلائل الاستخدام", send: "دليل" },
+        { label: "📄 دليل كارت", send: "دليل كارت" },
+        { label: "📄 دليل باب", send: "دليل باب" },
+        { label: "📄 دليل كامة", send: "دليل كامة" }
+      ]
+    });
+  } catch (err) {
+    console.error("Chat Handler Error:", err);
+    return res.status(200).json({
+      reply: "حدث خطأ مؤقت. برجاء المحاولة مرة أخرى.",
+      context: {}
     });
   }
-
-  // fallback
-  return res.json({
-    reply: "مش فاهم سؤالك بنسبة 100%.\nاختار من الاقتراحات القريبة دي:",
-    context: nextContext,
-    suggestions: buildSuggestions(message, null)
-  });
 });
 
-// JSON error handler
+// Always JSON
 app.use((err, req, res, next) => {
   console.error("API Error:", err);
   res.status(500).json({
