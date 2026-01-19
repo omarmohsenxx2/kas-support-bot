@@ -1,14 +1,14 @@
 // knowledge.js
 module.exports = {
   hotline: "01146925558",
-  storeUrl: "PUT_STORE_URL_HERE",
+  storeUrl: "https://egy-tronix.com/shop/",
 
   greetings: {
     triggers: ["السلام عليكم", "اهلا", "أهلا", "مرحبا", "هاي", "hello", "hi"],
     reply:
       "أهلاً بحضرتك 👋\n" +
       "أنا KAS.\n" +
-      "اسألني عن: دلائل الاستخدام، عناوين الفروع، أو أرقام الأقسام."
+      "اكتب: (دليل) أو (دليل كارت/باب/كامة) أو اسم المنتج."
   },
 
   autoDoorSupportGroup: {
@@ -16,18 +16,7 @@ module.exports = {
   },
 
   branches: {
-    list: [
-      "الإدارة",
-      "الفرع الرئيسي",
-      "فيصل",
-      "حلمية الزيتون",
-      "القاهرة",
-      "الإسكندرية",
-      "المنصورة",
-      "أسيوط",
-      "دمنهور",
-      "المملكة العربية السعودية"
-    ],
+    list: ["الإدارة", "الفرع الرئيسي", "فيصل", "حلمية الزيتون", "القاهرة", "الإسكندرية", "المنصورة", "أسيوط", "دمنهور", "المملكة العربية السعودية"],
     data: {
       "الإدارة": { address: "شارع الملك فيصل - محطة التعاون - برج الشرطة - الدور الأول - الجيزة" },
       "الفرع الرئيسي": { address: "شارع الملك فيصل - محطة التعاون - برج الشرطة - الدور الأول - الجيزة" },
@@ -63,70 +52,56 @@ module.exports = {
     "خدمة العملاء": { phones: ["01120999366"] }
   },
 
-  // Products catalog (types used for suggestions)
+  // products: type مهم عشان suggestions
   products: {
     kas_2021: {
       type: "cards",
       name: "كاس 2021",
       aliases: ["kas 2021", "2021", "كارت كاس 2021", "كارت 2021"],
       url: "https://egy-tronix.com/",
-      manuals: [
-        { title: "دليل استخدام كارت كاس 2021", url: "https://egy-tronix.com/wp-content/uploads/2025/10/دليل-استخدام-كارت-كاس-2021.pdf" }
-      ]
+      manuals: [{ title: "دليل استخدام كارت كاس 2021", url: "https://egy-tronix.com/wp-content/uploads/2025/10/دليل-استخدام-كارت-كاس-2021.pdf" }]
     },
     kas_2025: {
       type: "cards",
       name: "كاس 2025",
       aliases: ["kas 2025", "2025", "كارت كاس 2025", "كارت 2025"],
       url: "https://egy-tronix.com/",
-      manuals: [
-        { title: "KAS 2025 Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-2025-data-sheet.pdf" }
-      ]
+      manuals: [{ title: "KAS 2025 Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-2025-data-sheet.pdf" }]
     },
     gold_2030: {
       type: "cards",
       name: "جولد 2030",
       aliases: ["gold 2030", "2030", "جولد", "كاس جولد 2030", "gold"],
       url: "https://egy-tronix.com/",
-      manuals: [
-        { title: "Gold 2030 User Manual", url: "https://egy-tronix.com/wp-content/uploads/2025/10/Gold-2030-user-manual-.pdf" }
-      ]
-    },
-    ups_panel: {
-      type: "power",
-      name: "UPS",
-      aliases: ["ups", "يو بي اس", "كاس ups"],
-      url: "https://egy-tronix.com/",
-      manuals: [
-        { title: "KAS UPS Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-UPS-data-sheet.pdf" }
-      ]
-    },
-    inverter_card: {
-      type: "power",
-      name: "Inverter",
-      aliases: ["inverter", "انفرتر", "كارت انفرتر", "كاس انفرتر"],
-      url: "https://egy-tronix.com/",
-      manuals: [
-        { title: "KAS Inverter Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-inverter-data-sheet.pdf" }
-      ]
+      manuals: [{ title: "Gold 2030 User Manual", url: "https://egy-tronix.com/wp-content/uploads/2025/10/Gold-2030-user-manual-.pdf" }]
     },
     mini_8: {
       type: "cards",
       name: "ميني 8",
       aliases: ["mini 8", "ميني", "8 وقفه", "8 وقفة", "mini-8"],
       url: "https://egy-tronix.com/",
-      manuals: [
-        { title: "دليل استخدام كارت كاس ميني 8", url: "https://egy-tronix.com/wp-content/uploads/2025/10/دليل-استخدام-كارت-كاس-ميني-8.pdf" }
-      ]
+      manuals: [{ title: "دليل استخدام كارت كاس ميني 8", url: "https://egy-tronix.com/wp-content/uploads/2025/10/دليل-استخدام-كارت-كاس-ميني-8.pdf" }]
+    },
+    inverter_card: {
+      type: "power",
+      name: "Inverter",
+      aliases: ["inverter", "انفرتر", "كارت انفرتر", "كاس انفرتر"],
+      url: "https://egy-tronix.com/",
+      manuals: [{ title: "KAS Inverter Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-inverter-data-sheet.pdf" }]
+    },
+    ups_panel: {
+      type: "power",
+      name: "UPS",
+      aliases: ["ups", "يو بي اس", "كاس ups"],
+      url: "https://egy-tronix.com/",
+      manuals: [{ title: "KAS UPS Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-UPS-data-sheet.pdf" }]
     },
     cam_09: {
       type: "cams",
       name: "كامة 09",
       aliases: ["cam 09", "كامة 09", "09", "برشور الكامة 09"],
       url: "https://egy-tronix.com/",
-      manuals: [
-        { title: "برشور الكامة 09", url: "https://egy-tronix.com/wp-content/uploads/2025/10/برشور-الكامة-09.pdf" }
-      ]
+      manuals: [{ title: "برشور الكامة 09", url: "https://egy-tronix.com/wp-content/uploads/2025/10/برشور-الكامة-09.pdf" }]
     },
     automatic_door: {
       type: "doors",
