@@ -7,8 +7,8 @@ module.exports = {
     triggers: ["السلام عليكم", "اهلا", "أهلا", "مرحبا", "هاي", "hello", "hi"],
     reply:
       "أهلاً بحضرتك 👋\n" +
-      "أنا KAS.\n" +
-      "اكتب: (دليل) أو (دليل كارت/باب/كامة) أو اسم المنتج."
+      "أنا Liftix by KAS.\n" +
+      "اكتب: (أدلة الاستخدام) أو (دليل كارت/باب/كامة) أو اسم المنتج."
   },
 
   autoDoorSupportGroup: {
@@ -61,6 +61,7 @@ module.exports = {
       url: "https://egy-tronix.com/",
       manuals: [{ title: "دليل استخدام كارت كاس 2021", url: "https://egy-tronix.com/wp-content/uploads/2025/10/دليل-استخدام-كارت-كاس-2021.pdf" }]
     },
+
     kas_2025: {
       type: "cards",
       name: "كاس 2025",
@@ -68,6 +69,7 @@ module.exports = {
       url: "https://egy-tronix.com/",
       manuals: [{ title: "KAS 2025 Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-2025-data-sheet.pdf" }]
     },
+
     gold_2030: {
       type: "cards",
       name: "جولد 2030",
@@ -75,6 +77,7 @@ module.exports = {
       url: "https://egy-tronix.com/",
       manuals: [{ title: "Gold 2030 User Manual", url: "https://egy-tronix.com/wp-content/uploads/2025/10/Gold-2030-user-manual-.pdf" }]
     },
+
     mini_8: {
       type: "cards",
       name: "ميني 8",
@@ -82,6 +85,7 @@ module.exports = {
       url: "https://egy-tronix.com/",
       manuals: [{ title: "دليل استخدام كارت كاس ميني 8", url: "https://egy-tronix.com/wp-content/uploads/2025/10/دليل-استخدام-كارت-كاس-ميني-8.pdf" }]
     },
+
     inverter_card: {
       type: "power",
       name: "Inverter",
@@ -89,6 +93,7 @@ module.exports = {
       url: "https://egy-tronix.com/",
       manuals: [{ title: "KAS Inverter Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-inverter-data-sheet.pdf" }]
     },
+
     ups_panel: {
       type: "power",
       name: "UPS",
@@ -96,26 +101,54 @@ module.exports = {
       url: "https://egy-tronix.com/",
       manuals: [{ title: "KAS UPS Data Sheet", url: "https://egy-tronix.com/wp-content/uploads/2025/10/KAS-UPS-data-sheet.pdf" }]
     },
+
+    // ✅ كامة 09 (تحديث الرابط + إزالة alias "09" لوحده لتجنب لقط غلط)
     cam_09: {
       type: "cams",
       name: "كامة 09",
-      aliases: ["cam 09", "كامة 09", "09", "برشور الكامة 09"],
+      aliases: ["cam 09", "كامة 09", "الكامة 09", "برشور الكامة 09", "cam09", "kama 09"],
       url: "https://egy-tronix.com/",
-      manuals: [{ title: "برشور الكامة 09", url: "https://egy-tronix.com/wp-content/uploads/2025/10/برشور-الكامة-09.pdf" }]
+      manuals: [{ title: "برشور الكامة 09", url: "https://egy-tronix.com/wp-content/uploads/2025/10/برشور-الكامة-09-1.pdf" }]
     },
+
+    // ✅ كامة 08
+    cam_08: {
+      type: "cams",
+      name: "كامة 08",
+      aliases: ["cam 08", "كامة 08", "الكامة 08", "فلاير الكامة 08", "cam08", "kama 08"],
+      url: "https://egy-tronix.com/",
+      manuals: [{ title: "فلاير الكامة 08", url: "https://egy-tronix.com/wp-content/uploads/2025/10/فلاير-الكامة-الجديد-08.pdf" }]
+    },
+
+    // ✅ باب أوتوماتيك (3 أدلة)
     automatic_door: {
       type: "doors",
       name: "باب أوتوماتيك",
-      aliases: ["باب اوتوماتيك", "باب اتوماتيك", "automatic door", "elevator automatic door"],
+      aliases: ["باب اوتوماتيك", "باب اتوماتيك", "automatic door", "elevator automatic door", "باب كاس اوتوماتيك", "باب كاس"],
       url: "https://egy-tronix.com/elevator-automatic-doors/",
-      manuals: []
+      manuals: [
+        {
+          title: "دليل تركيب/استخدام باب أوتوماتيك (تلسكوبي خارجي/داخلي) V1",
+          url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-تلسكوبي-V1-PDF.pdf"
+        },
+        {
+          title: "دليل تركيب/استخدام باب أوتوماتيك (سنتر تلسكوبي خارجي/داخلي) V1",
+          url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-سنتر-تلسكوبيV1-PDF.pdf"
+        },
+        {
+          title: "دليل تركيب/استخدام باب أوتوماتيك (سنتر خارجي/داخلي) V1",
+          url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-سنتر-V1-PDF.pdf"
+        }
+      ]
     },
+
+    // ✅ باب Folding
     folding_door: {
       type: "doors",
       name: "باب فولدينج",
-      aliases: ["فولدينج", "باب طي", "folding door", "باب folding"],
+      aliases: ["فولدينج", "باب طي", "folding door", "باب folding", "باب فولدنج", "باب فولدينج كاس"],
       url: "https://egy-tronix.com/",
-      manuals: []
+      manuals: [{ title: "دليل باب فولدينج KAS (عربي)", url: "https://egy-tronix.com/wp-content/uploads/2025/10/doorKAS-user-guide-عربي.pdf" }]
     }
   }
 };
