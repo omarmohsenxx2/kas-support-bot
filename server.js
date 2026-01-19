@@ -68,7 +68,8 @@ function isGreeting(msg) {
 
 function isManualIntent(msg) {
   const m = normalize(msg);
-  return m.includes("دليل") || m.includes("كتالوج") || m.includes("manual") || m.includes("datasheet") || m.includes("pdf") || m.includes("برشور");
+  return m.includes("دليل") || m.includes("ادله") || m.includes("أدلة") || m.includes("كتالوج") ||
+         m.includes("manual") || m.includes("datasheet") || m.includes("pdf") || m.includes("برشور") || m.includes("فلاير");
 }
 
 function isPriceIntent(msg) {
@@ -83,7 +84,8 @@ function isAddressIntent(msg) {
 
 function isDeptIntent(msg) {
   const m = normalize(msg);
-  return m.includes("دعم") || m.includes("مبيعات") || m.includes("تسويق") || m.includes("مشتريات") || m.includes("خدمة العملاء") || m.includes("خدمه العملاء") || m.includes("رقم") || m.includes("ارقام") || m.includes("أرقام");
+  return m.includes("دعم") || m.includes("مبيعات") || m.includes("تسويق") || m.includes("مشتريات") ||
+         m.includes("خدمة العملاء") || m.includes("خدمه العملاء") || m.includes("رقم") || m.includes("ارقام") || m.includes("أرقام");
 }
 
 function formatPhones(obj) {
@@ -119,7 +121,7 @@ function manualsFor(productId) {
   if (!manuals.length) {
     return `لا توجد ملفات PDF مضافة حالياً لـ ${p.name}.\nرابط صفحة المنتج:\n${p.url || ""}`.trim();
   }
-  return `دلائل/كتالوج ${p.name}:\n` + manuals.map(m => `- ${(m && m.title) || "ملف"}:\n${(m && m.url) || ""}`).join("\n");
+  return `أدلة/كتالوج ${p.name}:\n` + manuals.map(m => `- ${(m && m.title) || "ملف"}:\n${(m && m.url) || ""}`).join("\n");
 }
 
 function suggestionsByType(type) {
@@ -128,6 +130,41 @@ function suggestionsByType(type) {
     if (p.type === type && p.name) out.push({ label: p.name, send: "دليل " + p.name });
   }
   return out;
+}
+
+// ---- Door manuals quick map (for direct buttons) ----
+const AUTO_DOOR_MANUALS = {
+  telescopic: {
+    title: "📘 باب أوتوماتيك: تلسكوبي (خارجي/داخلي)",
+    url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-تلسكوبي-V1-PDF.pdf",
+    send: "دليل باب أوتوماتيك تلسكوبي"
+  },
+  center_telescopic: {
+    title: "📘 باب أوتوماتيك: سنتر تلسكوبي (خارجي/داخلي)",
+    url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-سنتر-تلسكوبيV1-PDF.pdf",
+    send: "دليل باب أوتوماتيك سنتر تلسكوبي"
+  },
+  center: {
+    title: "📘 باب أوتوماتيك: سنتر (خارجي/داخلي)",
+    url: "https://egy-tronix.com/wp-content/uploads/2026/01/دليل-إستخدام-وتركيب-باب-أوتوماتيك-كاس-خارجي-وداخلي-سنتر-V1-PDF.pdf",
+    send: "دليل باب أوتوماتيك سنتر"
+  }
+};
+
+function isAutoDoorVariantIntent(message) {
+  const m = normalize(message);
+  if (!(m.includes("باب") && (m.includes("اوتوماتيك") || m.includes("اتوماتيك") || m.includes("automatic")))) return null;
+
+  // detect variants
+  const hasTel = m.includes("تلسكوبي") || m.includes("telescopic");
+  const hasCenter = m.includes("سنتر") || m.includes("center");
+  const hasCenterTel = (m.includes("سنتر تلسكوبي") || (hasCenter && hasTel));
+
+  if (hasCenterTel) return "center_telescopic";
+  if (hasCenter) return "center";
+  if (hasTel) return "telescopic";
+
+  return null;
 }
 
 function manualSuggestions(message) {
@@ -140,21 +177,28 @@ function manualSuggestions(message) {
 
   // دليل باب
   if (m.includes("باب") || m.includes("door") || m.includes("doors")) {
-    const s = suggestionsByType("doors");
-    s.push({ label: "جروب دعم الأبواب الأوتوماتيك", send: "جروب دعم الأبواب" });
-    return s;
+    return [
+      { label: AUTO_DOOR_MANUALS.telescopic.title, send: AUTO_DOOR_MANUALS.telescopic.send },
+      { label: AUTO_DOOR_MANUALS.center_telescopic.title, send: AUTO_DOOR_MANUALS.center_telescopic.send },
+      { label: AUTO_DOOR_MANUALS.center.title, send: AUTO_DOOR_MANUALS.center.send },
+      { label: "📄 دليل باب فولدينج (عربي)", send: "دليل باب فولدينج" },
+      { label: "👥 جروب دعم الأبواب الأوتوماتيك", send: "جروب دعم الأبواب" }
+    ];
   }
 
   // دليل كامة
-  if (m.includes("كامة") || m.includes("cam")) {
-    return suggestionsByType("cams");
+  if (m.includes("كامة") || m.includes("كامه") || m.includes("cam")) {
+    return [
+      { label: "📄 كامة 08", send: "دليل كامة 08" },
+      { label: "📄 كامة 09", send: "دليل كامة 09" }
+    ];
   }
 
   // دليل فقط
   return [
-    { label: "دلائل الكروت", send: "دليل كارت" },
-    { label: "دلائل الأبواب", send: "دليل باب" },
-    { label: "دلائل الكامات", send: "دليل كامة" }
+    { label: "📄 أدلة الكروت", send: "دليل كارت" },
+    { label: "📄 أدلة الأبواب", send: "دليل باب" },
+    { label: "📄 أدلة الكامات", send: "دليل كامة" }
   ];
 }
 
@@ -187,10 +231,11 @@ app.post("/chat", (req, res) => {
         reply: (K.greetings?.reply || "أهلاً 👋") + (K.hotline ? `\n\n☎️ الخط الساخن: ${K.hotline}` : ""),
         context: nextContext,
         suggestions: [
-          { label: "📄 دلائل الاستخدام", send: "دليل" },
-          { label: "📄 دليل كارت", send: "دليل كارت" },
-          { label: "📄 دليل باب", send: "دليل باب" },
-          { label: "📄 دليل كامة", send: "دليل كامة" }
+          { label: "📄 أدلة الاستخدام", send: "دليل" },
+          { label: "📄 دليل الكروت", send: "دليل كارت" },
+          { label: "📄 دليل الأبواب", send: "دليل باب" },
+          { label: "📄 دليل الكامات", send: "دليل كامة" },
+          { label: "🛒 المتجر", send: "المتجر" }
         ]
       });
     }
@@ -201,7 +246,7 @@ app.post("/chat", (req, res) => {
     const productId = detectedProduct || nextContext.lastProductId || null;
 
     // store
-    if (m === "المتجر" || m.includes("متجر")) {
+    if (m === "المتجر" || m.includes("متجر") || m.includes("shop")) {
       return res.json({ reply: `متجر KAS الإلكتروني:\n${K.storeUrl || ""}`, context: nextContext });
     }
 
@@ -220,27 +265,41 @@ app.post("/chat", (req, res) => {
     }
 
     // door support group
-    if (m.includes("جروب") && (m.includes("باب") || m.includes("ابواب") || m.includes("الأبواب"))) {
+    if (m.includes("جروب") && (m.includes("باب") || m.includes("ابواب") || m.includes("الأبواب") || m.includes("ابواب"))) {
       return res.json({
         reply: `جروب كاس للدعم الفني للأبواب الأوتوماتيك:\n${K.autoDoorSupportGroup?.url || ""}`,
         context: nextContext
       });
     }
 
-    // manuals
+    // manuals: direct auto-door variant (buttons)
     if (isManualIntent(message)) {
-      // إذا قال دليل فقط/أو دليل كارت/باب/كامة → suggestions
-      if (!productId || m === "دليل" || m.includes("دليل كارت") || m.includes("دليل باب") || m.includes("دليل كامه") || m.includes("دليل كامة")) {
+      const v = isAutoDoorVariantIntent(message);
+      if (v && AUTO_DOOR_MANUALS[v]) {
         return res.json({
-          reply: "اختار الدليل اللي محتاجه من الأزرار:",
+          reply: `${AUTO_DOOR_MANUALS[v].title}:\n${AUTO_DOOR_MANUALS[v].url}`,
+          context: nextContext,
+          suggestions: [
+            { label: "👥 جروب دعم الأبواب الأوتوماتيك", send: "جروب دعم الأبواب" },
+            { label: "🛠️ رقم الدعم الفني", send: "رقم الدعم الفني" }
+          ]
+        });
+      }
+
+      // If user said دليل فقط/دليل باب/كارت/كامة → show suggestions
+      if (!productId || m === "دليل" || m.includes("ادله") || m.includes("أدلة") ||
+          m.includes("دليل كارت") || m.includes("دليل باب") || m.includes("دليل كامه") || m.includes("دليل كامة")) {
+        return res.json({
+          reply: "اختار اللي محتاجه من الأزرار 👇",
           context: nextContext,
           suggestions: manualSuggestions(message)
         });
       }
+
       return res.json({ reply: manualsFor(productId), context: nextContext });
     }
 
-    // branches
+    // branches list
     if (m.includes("عناوين الفروع")) {
       return res.json({
         reply: `اختر الفرع:\n- ${safeArray(K.branches?.list).join("\n- ")}`,
@@ -248,8 +307,8 @@ app.post("/chat", (req, res) => {
       });
     }
 
+    // branches
     if (isAddressIntent(message)) {
-      // detect basic aliases
       const aliases = {
         "الفرع الرئيسي": "فيصل",
         "الرئيسي": "فيصل",
@@ -263,6 +322,7 @@ app.post("/chat", (req, res) => {
         "اسكندريه": "الإسكندرية",
         "القاهره": "القاهرة"
       };
+
       let branch = null;
       for (const k of Object.keys(aliases)) {
         if (m.includes(normalize(k))) { branch = aliases[k]; break; }
@@ -279,7 +339,10 @@ app.post("/chat", (req, res) => {
         });
       }
       const bdata = safeObj(K.branches?.data?.[branch]);
-      return res.json({ reply: `عنوان فرع ${branch}:\n${bdata.address || "غير مُضاف بعد"}`, context: nextContext });
+      return res.json({
+        reply: `عنوان فرع ${branch}:\n${bdata.address || "غير مُضاف بعد"}`,
+        context: nextContext
+      });
     }
 
     // departments
@@ -310,7 +373,7 @@ app.post("/chat", (req, res) => {
     if (productId) {
       const p = safeObj(PRODUCTS[productId]);
       return res.json({
-        reply: `${p.name || "المنتج"}\nلو محتاج الدليل اضغط الزر:`,
+        reply: `${p.name || "المنتج"}\nلو محتاج دليل الاستخدام اضغط الزر 👇`,
         context: nextContext,
         suggestions: [
           { label: "📄 دليل/كتالوج " + (p.name || "المنتج"), send: "دليل " + (p.name || "") },
@@ -321,13 +384,14 @@ app.post("/chat", (req, res) => {
 
     // fallback
     return res.json({
-      reply: "اكتب: (دليل) أو (دليل كارت/باب/كامة) أو اسم المنتج.",
+      reply: "اكتب: (أدلة الاستخدام) أو (دليل كارت/باب/كامة) أو اسم المنتج.",
       context: nextContext,
       suggestions: [
-        { label: "📄 دلائل الاستخدام", send: "دليل" },
-        { label: "📄 دليل كارت", send: "دليل كارت" },
-        { label: "📄 دليل باب", send: "دليل باب" },
-        { label: "📄 دليل كامة", send: "دليل كامة" }
+        { label: "📄 أدلة الاستخدام", send: "دليل" },
+        { label: "📄 دليل الكروت", send: "دليل كارت" },
+        { label: "📄 دليل الأبواب", send: "دليل باب" },
+        { label: "📄 دليل الكامات", send: "دليل كامة" },
+        { label: "🛒 المتجر", send: "المتجر" }
       ]
     });
   } catch (err) {
@@ -347,6 +411,9 @@ app.use((err, req, res, next) => {
     context: req.body?.context || {}
   });
 });
+
+const PORT = Number(process.env.PORT || 3000);
+app.listen(PORT, () => console.log("Server running on", PORT));
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => console.log("Server running on", PORT));
