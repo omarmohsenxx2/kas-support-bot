@@ -1,7 +1,7 @@
 // knowledge.js
 module.exports = {
   hotline: "01146925558",
-  storeUrl: "PUT_STORE_URL_HERE",
+  storeUrl: "https://egy-tronix.com/shop/",
 
   greetings: {
     triggers: ["السلام عليكم", "اهلا", "أهلا", "مرحبا", "هاي", "hello", "hi"],
