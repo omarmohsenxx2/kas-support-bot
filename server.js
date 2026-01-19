@@ -252,42 +252,52 @@ app.post("/chat", (req, res) => {
       });
     }
 
-// manuals
-if (isManualIntent(message)) {
-  // أوامر الأقسام فقط (بدون اسم منتج)
-  const isCategoryOnly =
-    m === "دليل" ||
-    m === "ادله" ||
-    m === "ادله الاستخدام" ||
-    m === "أدلة" ||
-    m === "أدلة الاستخدام" ||
-    m === "دليل كارت" ||
-    m === "دليل باب" ||
-    m === "دليل كامه" ||
-    m === "دليل كامة";
+    // manuals
+    if (isManualIntent(message)) {
+      // أوامر الأقسام فقط (بدون اسم منتج)
+      const isCategoryOnly =
+        m === "دليل" ||
+        m === "ادله" ||
+        m === "ادله الاستخدام" ||
+        m === "أدلة" ||
+        m === "أدلة الاستخدام" ||
+        m === "دليل كارت" ||
+        m === "دليل باب" ||
+        m === "دليل كامه" ||
+        m === "دليل كامة";
 
-  // لو المستخدم طلب قسم عام أو المنتج مش معروف → اعرض أزرار الاختيار
-  if (!productId || isCategoryOnly) {
-    return res.json({
-      reply: "اختار الدليل اللي محتاجه من الأزرار 👇",
-      context: nextContext,
-      suggestions: manualSuggestions(message)
-    });
-  }
+      // لو المستخدم طلب قسم عام أو المنتج مش معروف → اعرض أزرار الاختيار
+      if (!productId || isCategoryOnly) {
+        return res.json({
+          reply: "اختار الدليل اللي محتاجه من الأزرار 👇",
+          context: nextContext,
+          suggestions: manualSuggestions(message)
+        });
+      }
 
-  // لو فيه منتج معروف → اعرض ملفات المنتج مباشرة
-  return res.json({ reply: manualsFor(productId), context: nextContext });
-}
+      // لو فيه منتج معروف → اعرض ملفات المنتج مباشرة
+      return res.json({ reply: manualsFor(productId), context: nextContext });
+    }
 
     // branches
-if (m.includes("عناوين الفروع")) {
-  const branches = safeArray(K.branches?.list);
-  return res.json({
-    reply: "اختار الفرع من الأزرار 👇",
-    context: nextContext,
-    suggestions: branches.map(b => ({ label: b, send: "عنوان " + b }))
-  });
-}
+    if (m.includes("عناوين الفروع")) {
+      const branches = safeArray(K.branches?.list);
+      return res.json({
+        reply: "اختار الفرع من الأزرار 👇",
+        context: nextContext,
+        suggestions: branches.map(b => ({ label: b, send: "عنوان " + b }))
+      });
+    }
+
+    // ✅ (تعديل 1) أرقام الفروع كأزرار
+    if (m.includes("ارقام الفروع") || m.includes("أرقام الفروع")) {
+      const branches = safeArray(K.branches?.list);
+      return res.json({
+        reply: "اختار الفرع علشان تظهر لك الأرقام 👇",
+        context: nextContext,
+        suggestions: branches.map(b => ({ label: b, send: "أرقام " + b }))
+      });
+    }
 
     if (isAddressIntent(message)) {
       // detect basic aliases
@@ -319,20 +329,33 @@ if (m.includes("عناوين الفروع")) {
           context: nextContext
         });
       }
+
       const bdata = safeObj(K.branches?.data?.[branch]);
+
+      // ✅ (تعديل 2) لو المستخدم طالب أرقام الفرع
+      if (m.includes("ارقام") || m.includes("أرقام")) {
+        const phones = safeArray(bdata.phones).filter(Boolean);
+        const out = phones.length
+          ? `أرقام فرع ${branch}:\n- ${phones.join("\n- ")}`
+          : `لا توجد أرقام مضافة حالياً لفرع ${branch}.`;
+        return res.json({ reply: out, context: nextContext });
+      }
+
+      // غير كده → عنوان الفرع
       return res.json({ reply: `عنوان فرع ${branch}:\n${bdata.address || "غير مُضاف بعد"}`, context: nextContext });
     }
-    
-// departments list buttons
-if (m.includes("ارقام الاقسام") || m.includes("أرقام الأقسام") || m.includes("اقسام") || m.includes("الأقسام")) {
-  const deps = safeObj(K.departments);
-  const keys = Object.keys(deps);
-  return res.json({
-    reply: "اختار القسم من الأزرار 👇",
-    context: nextContext,
-    suggestions: keys.map(k => ({ label: k, send: "رقم " + k }))
-  });
-}
+
+    // departments list buttons
+    if (m.includes("ارقام الاقسام") || m.includes("أرقام الأقسام") || m.includes("اقسام") || m.includes("الأقسام")) {
+      const deps = safeObj(K.departments);
+      const keys = Object.keys(deps);
+      return res.json({
+        reply: "اختار القسم من الأزرار 👇",
+        context: nextContext,
+        // ✅ (تعديل 3) أرقام ... بدل رقم ...
+        suggestions: keys.map(k => ({ label: k, send: "أرقام " + k }))
+      });
+    }
 
     // departments
     if (isDeptIntent(message)) {
@@ -349,14 +372,15 @@ if (m.includes("ارقام الاقسام") || m.includes("أرقام الأقس
         else if (m.includes("خدمة") || m.includes("خدمه")) dept = "خدمة العملاء";
       }
 
-if (!dept || !deps[dept]) {
-  const keys = Object.keys(deps);
-  return res.json({
-    reply: "حضرتك تقصد أي قسم؟ اختار من الأزرار 👇",
-    context: nextContext,
-    suggestions: keys.map(k => ({ label: k, send: "رقم " + k }))
-  });
-}
+      if (!dept || !deps[dept]) {
+        const keys = Object.keys(deps);
+        return res.json({
+          reply: "حضرتك تقصد أي قسم؟ اختار من الأزرار 👇",
+          context: nextContext,
+          // ✅ (تعديل 3) أرقام ... بدل رقم ...
+          suggestions: keys.map(k => ({ label: k, send: "أرقام " + k }))
+        });
+      }
       return res.json({ reply: `بيانات ${dept}:\n${formatPhones(deps[dept])}`, context: nextContext });
     }
 
